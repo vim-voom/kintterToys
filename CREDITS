@@ -1,0 +1,7 @@
+
+Class Timer was adapted from Python standard library: Lib/threading.py, class
+Timer(Thread).
+
+Patch for ttk.OptionMenu bug was posted by Bryan Oakley:
+https://stackoverflow.com/questions/33831289/ttk-optionmenu-displaying-check-mark-on-all-menus
+

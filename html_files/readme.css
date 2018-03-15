@@ -1,0 +1,42 @@
+
+body {
+	background-color: #f8f8ff;
+	color: black;
+}
+
+
+h1 {
+	background-color: #f0e68c;
+	border-top-style: solid;
+	border-top-width: 2px;
+}
+
+h2,h3,h4,h5,h6 {
+	background-color: #eee8aa;
+	border-top-style: outset;
+	border-top-width: 2px;
+}
+
+code {
+	white-space: pre;
+	background-color: #dcdcc4;
+    padding: 0px 4px 0px 4px;
+	border-bottom-style: dotted;
+	border-bottom-width: 1px;
+}
+
+pre {
+	background-color: #eeeed1;
+	margin-left: 2em;
+	padding: 4px 8px 4px 8px;
+	border-left-style: dotted;
+	border-left-width: 2px;
+}
+
+pre > code {
+	background-color: #eeeed1;
+	padding: 0px;
+	border-style: none;
+	border-width: 0px;
+}
+

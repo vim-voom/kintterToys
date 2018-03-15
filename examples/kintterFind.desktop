@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=kintterFind
+Comment=Find files comfortably
+Exec=python3 /opt/kintterToys/start_kintterFind.py
+Icon=system-search
+Terminal=false
+Categories=Utility;FileTools;
+
