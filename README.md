@@ -17,7 +17,7 @@ every time a search is performed (non-indexing search, like Unix `find`).
 It is intended for the so-called Linux desktop. It also works on Windows.
 It is naturally lightweight, portable, desktop-independent, and telemetry-free.
 
-<center> ![](./html_files/kintterFind.png) </center>
+![](./html_files/kintterFind.png)
 
 
 Requirements
@@ -503,4 +503,4 @@ path separators are normalized to `\`. Thus use `\` in filter "Path".
 When OS is Windows, the following columns seem to always have value 0: SIZE of
 directories, UID, GID, NLINK, INO.
 
-<center>--- The End ---</center>
+--- The End ---
