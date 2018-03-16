@@ -1,10 +1,12 @@
 **kintterToys** contains one program: **kintterFind**.
 
+VERSION: 2018-03
+
+WEBSITE: <https://github.com/vim-voom/kintterToys>
+
 AUTHOR: see file AUTHOR
 
 LICENSE: GNU General Public License Version 3
-
-WEBSITE: <https://github.com/vim-voom/kintterToys>
 
 
 kintterFind
@@ -17,7 +19,9 @@ every time a search is performed (non-indexing search, like Unix `find`).
 It is intended for the so-called Linux desktop. It also works on Windows.
 It is naturally lightweight, portable, desktop-independent, and telemetry-free.
 
-![](./html_files/kintterFind.png)
+<p align="center">
+<img src="./html_files/kintterFind.png">
+</p>
 
 
 Requirements
@@ -503,4 +507,7 @@ path separators are normalized to `\`. Thus use `\` in filter "Path".
 When OS is Windows, the following columns seem to always have value 0: SIZE of
 directories, UID, GID, NLINK, INO.
 
+
+<p align="center">
 --- The End ---
+</p>
