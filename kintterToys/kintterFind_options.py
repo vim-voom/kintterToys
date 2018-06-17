@@ -14,12 +14,16 @@ CONFIGDIR = '~/.config/kintterToys'
 
 #--- Application window ----------------------------------------------
 
-# Application window size and position on desktop in pixels:
+# Geometry (application window size and position on desktop in pixels):
 #       WxH+X+Y, WxH-X-Y, WxH+X-Y, WxH-X+Y.
 # W is width. H is height.
 # +X or -X is distance from the left or right edge of desktop respectively.
 # +Y or -Y is distance from the top or bottom edge of desktop respectively.
-GEOMETRY = "1200x600+20+20"
+# Use menu command Help -> Geometry to get current application geometry.
+# Examples:
+#GEOMETRY = "1200x600+20+20"
+# Maximized on 1366x768 display with bottom taskbar:
+#GEOMETRY = "1366x691+-4+-4"
 # If empty string, application window is sized to about 90% of screen size.
 GEOMETRY = ""
 
@@ -108,28 +112,31 @@ DROPDOWN_DIRECTORIES = [
         ]
 
 # Fiter "Skipped dirs", combobox "Skip directories:".
-DROPDOWN_SKIP_DIRECTORIES = ['', '/media | /mnt', ]
+DROPDOWN_SKIP_DIRECTORIES = [ '', '/media|/mnt|',
+    '/dev|/proc|/sys|', '/media|/mnt|/dev|/proc|/sys|',]
 
-# Filter "Skipped dirs", combobox "Skip dirs with names:".
+# Filter "Skipped dirs", combobox "Skip dirs with name:".
 DROPDOWN_SKIP_DIRS_WITH_NAME = ['', '.', ]
 
-# Filter "Name", 1st combobox "Names:".
+# Filter "Name", 1st combobox "Name:".
 DROPDOWN_NAME_1 = ['',]
 
-# Filter "Name", 2nd combobox "Names:".
+# Filter "Name", 2nd combobox "Name:".
 DROPDOWN_NAME_2 = ['',]
 
-# Filter "Path", 1st combobox "Paths:".
+# Filter "Path", 1st combobox "Path:".
 DROPDOWN_PATH_1 = ['',]
 
-# Filter "Path", 2nd combobox "Paths:".
+# Filter "Path", 2nd combobox "Path:".
 DROPDOWN_PATH_2 = ['',]
 
-# Filter "Type", combobox "Extenstions:".
+# Filter "Type", combobox "Extension:".
 DROPDOWN_EXTENSION = ['',
-    '""|.txt|.md|.vim|.py|.sh|.bat', # text files
-    '.png|.svg|.gif|.jpg|.jpeg|.xpm|.bmp', # images
-    '.avi|.mpg|.mpeg|.mkv|.mp4|.wmv', # video
+    '""|txt|md|vim|py|sh|bat|vbs|htm|html|', # text
+    'pdf|chm|epub|mobi|azw3|', # book
+    'png|svg|gif|jpg|jpeg|xpm|bmp|', # image
+    'avi|mpg|mpeg|mkv|mp4|wmv|', # video
+    'mp3|ogg|flac|ape|m3u|m3u8|wav|mid|', # audio
         ]
 
 # Filter "Misc", combobox "MODE:".
@@ -145,11 +152,11 @@ DROPDOWN_MODE = ['',
 # https://docs.python.org/3/library/codecs.html#standard-encodings
 DROPDOWN_ENCODING = [
     'utf-8',
-    'ascii',
-    'latin-1', # iso-8859-1; Western Europe
+    'latin-1 #iso-8859-1', # Western Europe
     'cp1252', # Windows-1252; Western Europe
-    'utf-16-le', # UTF-16LE; Windows default for Unicode (e.g., exported .reg files)
     'cp1251 #Cyrillic', # Windows-1251; Bulgarian, Byelorussian, Macedonian, Russian, Serbian 
+    'ascii',
+    'utf-16-le', # UTF-16LE; Windows default for Unicode (e.g., exported .reg files)
     ]
 
 
@@ -178,6 +185,14 @@ DISPLAYCOLUMNS = (
     'Size',
     'MTIME', 
     )
+
+
+#--- Maximum number of results to display without warning. -----------
+# If the number of results after running FIND exceeds this number, a
+# confirmation dialog is shown asking if you really want to display so many
+# results. Displaying a large number of results can take a long time, consume a
+# lot of memory, and cannot be cancelled.
+MAX_RESULTS = 50000
 
 
 #--- Results (Treeview widget) appearance. ---------------------------
@@ -266,7 +281,7 @@ OPEN_FM = ''
 #OPEN_FM = '"C:/Programs/XYplorer/XYplorer.exe" /select= %P'
 
 
-#--- Extra Open commands ---------------------------------------------
+#--- Open Extra commands ---------------------------------------------
 # Additional Open commands to insert into the right-click menu
 # after "Open in File Manager". Optional. Set to [] to ignore it.
 # Format: [ [label1, command1], [label2, command2], ... ]
@@ -342,6 +357,7 @@ options_table = {
         'DISPLAYCOLUMNS': cfp.isSeq,
 
         'FIT_MAX_WIDTH': cfp.isInt,
+        'MAX_RESULTS': cfp.isInt,
 
         'RESULTS_FIELD_BG' : cfp.isStr,
         'RESULTS_BG'        : cfp.isStr,

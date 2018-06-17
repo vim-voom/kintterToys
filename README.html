@@ -4,8 +4,13 @@
   <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
   <meta http-equiv="Content-Style-Type" content="text/css" />
   <meta name="generator" content="pandoc" />
-  <title></title>
-  <style type="text/css">code{white-space: pre;}</style>
+  <title>README</title>
+  <style type="text/css">
+      code{white-space: pre-wrap;}
+      span.smallcaps{font-variant: small-caps;}
+      span.underline{text-decoration: underline;}
+      div.column{display: inline-block; vertical-align: top; width: 50%;}
+  </style>
   <link rel="stylesheet" href="./html_files/readme.css" type="text/css" />
 </head>
 <body>
@@ -18,7 +23,7 @@
 <li><a href="#command-line-options">Command line options</a></li>
 <li><a href="#usage">Usage</a><ul>
 <li><a href="#keyboard-and-mouse">Keyboard and mouse</a></li>
-<li><a href="#separates-multiple-search-queries">&quot;|&quot; separates multiple search queries</a></li>
+<li><a href="#separates-multiple-directories-and-search-queries">&quot;|&quot; separates multiple directories and search queries</a></li>
 <li><a href="#match-modes">Match modes</a></li>
 <li><a href="#ignorecase">IgnoreCase</a></li>
 <li><a href="#file-name-extensions">File name extensions</a></li>
@@ -27,25 +32,26 @@
 <li><a href="#handling-or-errors-during-find">Handling or errors during find</a></li>
 <li><a href="#columns">Columns</a></li>
 <li><a href="#file-operations">File operations</a></li>
-<li><a href="#miscellaneous-notes">Miscellaneous notes</a></li>
 </ul></li>
+<li><a href="#bugs">Bugs</a></li>
 </ul></li>
 </ul>
 </div>
-<p><strong>kintterToys</strong> contains one program: <strong>kintterFind</strong>.</p>
-<p>VERSION: 2018-03</p>
-<p>WEBSITE: <a href="https://github.com/vim-voom/kintterToys" class="uri">https://github.com/vim-voom/kintterToys</a></p>
-<p>AUTHOR: see file AUTHOR</p>
-<p>LICENSE: GNU General Public License Version 3</p>
+<p><strong>kintterToys</strong> contains one program: <strong>kintterFind</strong><br />
+VERSION: 2018-06<br />
+WEBSITE: <a href="https://github.com/vim-voom/kintterToys" class="uri">https://github.com/vim-voom/kintterToys</a><br />
+AUTHOR: see file AUTHOR<br />
+LICENSE: GNU General Public License Version 3</p>
 <h1 id="kintterfind">kintterFind</h1>
-<p><strong>kintterFind</strong> is a <a href="https://www.python.org/">Python</a> program with <a href="http://www.tcl.tk/">Tk/Ttk</a> GUI (Tkinter) for finding files. It uses <a href="https://pypi.python.org/pypi/scandir">scandir()</a> to traverse the file system every time a search is performed (non-indexing search, like Unix <code>find</code>). It is intended for the so-called Linux desktop. It also works on Windows. It is naturally lightweight, portable, desktop-independent, and telemetry-free.</p>
+<p><strong>kintterFind</strong> is a <a href="https://www.python.org/">Python</a> program with <a href="http://www.tcl.tk/">Tk/Ttk</a> GUI (Tkinter) for finding files. It does non-indexing file search (like Unix <code>find</code>) and uses <a href="https://pypi.python.org/pypi/scandir">scandir()</a> to traverse the file system. It is intended for the so-called Linux desktop. It also works on Windows. It is naturally lightweight, portable, desktop-independent, and telemetry-free.</p>
 <p align="center">
 <img src="./html_files/kintterFind.png">
 </p>
 <h2 id="requirements">Requirements</h2>
-<p><strong>Python 3</strong> and <strong>Tkinter</strong> (which implies Tcl/Tk/Ttk) are required. Python version &gt;=3.4 is required. Python version &gt;=3.5 is recommended.</p>
-<p>Most Linux distros have Python 3 installed by default. Run command <code>python3</code> in terminal and check version number. If it is &gt;=3.5, you only need to install Tkinter. To see if Tkinter is installed, try the following commands in python3 shell:</p>
-<pre><code>&gt;&gt;&gt; import tkinter
+<p>The only requirements are <strong>Python 3</strong> and <strong>Tkinter</strong> (which implies Tcl/Tk/Ttk). Python version &gt;=3.4 is required. Python version &gt;=3.5 is recommended.</p>
+<p>Most Linux distros have Python 3 installed by default. Run command <code>python3</code> in a terminal and check version number: if it is &gt;=3.5, you only need to install Tkinter. To check if Tkinter is installed, run the following commands:</p>
+<pre><code>$ python3
+&gt;&gt;&gt; import tkinter
 &gt;&gt;&gt; tkinter._test()</code></pre>
 <p>Linux distros usually do not install Tkinter by default. Commands to install it:</p>
 <pre><code>Arch:
@@ -54,6 +60,8 @@ Debian:
     $ sudo apt-get install python3-tk
 Fedora:
     $ sudo dnf install python3-tkinter
+openSUSE:
+    $ sudo zypper install python3-tk
 PCLinuxOS:
     $ su -c &#39;apt-get install tkinter3&#39;
 Slackware:
@@ -64,22 +72,27 @@ $ sudo pip3 install scandir
 $ sudo apt-get remove python3-pip python3-dev</code></pre>
 <p><a href="https://dejavu-fonts.github.io/">DejaVu fonts</a> or another font family with good coverage of Unicode symbols should be installed in order to display sort signs in column headings (triangles) and check marks on filter tabs (squares).</p>
 <h2 id="installing-and-starting">Installing and starting</h2>
-<p><strong>kintterToys</strong> is self-contained and portable. Download and extract it anywhere you have permission to write, e.g., ~/Scripts/kintterToys. Open terminal in the program directory and start <strong>kintterFind</strong> with the following command:</p>
+<p><strong>kintterFind</strong> is self-contained and portable. It can be run from any directory without installation. Download kintterToys:</p>
+<pre><code>$ cd ~/Downloads
+$ curl -LOJ https://github.com/vim-voom/kintterToys/archive/master.zip
+$ unzip kintterToys-master.zip
+$ cd kintterToys-master</code></pre>
+<p>Start <strong>kintterFind</strong> with the following command:</p>
 <pre><code>$ python3 start_kintterFind.py</code></pre>
 <p>If there are no errors and GUI appears, it's working.</p>
 <p>An example .desktop file is included: <a href="./examples/kintterFind.desktop">examples/kintterFind.desktop</a> .</p>
-<p>To install kintterToys to /opt for all users, see <a href="./examples/install_kintterToys.sh">examples/install_kintterToys.sh</a> .</p>
+<p>To do a proper install to /opt, see <a href="./examples/install_kintterToys.sh">examples/install_kintterToys.sh</a> .</p>
 <h2 id="config-file-and-config-directory">Config file and config directory</h2>
 <p>By default, during startup kintterFind looks for config file <code>kintterFind.config.py</code> in config directory <code>~/.config/kintterToys/</code>.</p>
 <p>To create config files in the default location, copy example config directory <code>examples/config/kintterToys/</code> to <code>~/.config/</code>.</p>
 <p>All available configuration options are documented in the example config file <a href="./examples/config/kintterToys/kintterFind.config.py">kintterFind.config.py</a> .</p>
-<p>For maximum enjoyment, the config file should be viewed and edited in a text editor with Python syntax highlighting. An invalid config file option usually will not prevent the program from starting and will be reported in the Log. It is still advisable after changing config file to start kintterFind from terminal and watch for errors.</p>
+<p>For maximum enjoyment, the config file should be viewed and edited in a text editor with Python syntax highlighting. An invalid config file option usually will not prevent the program from starting and will be reported in the Log. It is still advisable after changing config file to start kintterFind from a terminal and watch for errors.</p>
 <p>The name of config file is always &quot;kintterFind.config.py&quot;. The config directory where this file is located can be changed from the default via command line option <code>--configdir</code>. Config directory and config file may be symbolic links.</p>
 <h2 id="command-line-options">Command line options</h2>
 <p><code>start_kintterFind.py</code> accepts two command line options (may be abbreviated to <code>--c</code> and <code>--d</code>):</p>
 <ul>
 <li><p><code>--configdir {path-to-config-directory}</code> Config directory to use instead of the default <code>~/.config/kintterToys/</code>. This is directory where kintterFind looks for the config file &quot;kintterFind.config.py&quot; during startup. If the path is not an absolute path (after expanding ~, $HOME, etc.) it is assumed to be relative to the program folder, that is directory of &quot;start_kintterFind.py&quot;. This makes it possible to run kintterFind in portable mode. For example, to have config file just outside of the program folder, start kintterFind with the following command:</p>
-<pre><code>$ python3 &lt;path&gt;/start_kintterFind.py --c ..</code></pre></li>
+<pre><code>  $ python3 &lt;path&gt;/start_kintterFind.py --c ..</code></pre></li>
 <li><p><code>--directory {path}</code> Directory path or any other string to insert into combobox &quot;Directories:&quot; on startup. Useful for integration with a file manager.</p></li>
 </ul>
 <h2 id="usage">Usage</h2>
@@ -98,7 +111,7 @@ $ sudo apt-get remove python3-pip python3-dev</code></pre>
 <p>Standard Tkinter behavior: <code>Tab</code> and <code>Shift-Tab</code> traverse visible widgets, <code>Space</code> toggles check marks and presses buttons.</p>
 <p>Menus &quot;Columns&quot;, &quot;Ttk Theme&quot; are detachable for enhanced clicking experience.</p>
 <p><strong><em>Filters</em></strong></p>
-<p>Filters are organized in tabs at the bottom. To turn a filter on/off, <code>right-click</code> on its tab with the mouse. Alternatively, first select the filter tab with left single-click, then left <code>double-click</code> it or press <code>Space</code>. Tabs can also be traversed with <code>Ctrl-Tab</code> and <code>Shift-Ctrl-Tab</code>.</p>
+<p>Search filters are organized in tabs at the bottom. To turn a filter on/off, <code>right-click</code> on its tab with the mouse. Alternatively, first select the filter tab with left single-click, then left <code>double-click</code> it or press <code>Space</code>. Tabs can also be traversed with <code>Ctrl-Tab</code> and <code>Shift-Ctrl-Tab</code>.</p>
 <p><strong><em>Results (Treeview widget)</em></strong></p>
 <p>There are in two mouse right-click menus: one for headings, one for items.</p>
 <p>To sort a column, left-click on its heading. Or use heading's right-click menu.</p>
@@ -109,20 +122,20 @@ $ sudo apt-get remove python3-pip python3-dev</code></pre>
 <p><strong><em>Log text area</em></strong></p>
 <p>In addition to the right-click menu, standard key combinations should do the expected thing: <code>Ctrl-c</code>, <code>Ctrl-v</code>, <code>Ctrl-a</code>, <code>Ctrl-z</code>, <code>Ctrl-y</code>.</p>
 <p><code>Ctrl-Tab</code> switches between Log and Results.</p>
-<h3 id="separates-multiple-search-queries">&quot;|&quot; separates multiple search queries</h3>
-<p>Character <code>|</code> is used to separate multiple queries when specifying directories and search queries except when match mode is RegExp. This applies to the following fields:</p>
+<h3 id="separates-multiple-directories-and-search-queries">&quot;|&quot; separates multiple directories and search queries</h3>
+<p>Character <code>|</code> is used to separate multiple directories and search queries (except when match mode is RegExp). This applies to the following fields:</p>
 <ul>
 <li><p>&quot;<strong>Directories:</strong>&quot;. <code>|</code> separates multiple directories to search. Example: <code>~/.config | ~/.local</code> .</p></li>
-<li><p>&quot;<strong>Skip directories:</strong>&quot; in filter &quot;Skipped dirs&quot;. Same as for &quot;<strong>Directories:</strong>&quot;.</p></li>
+<li><p>&quot;<strong>Skip directories:</strong>&quot; in filter &quot;Skipped dirs&quot;. <code>|</code> separates multiple directories to skip (prune). Example: <code>/dev|/proc|/sys</code> .</p></li>
 <li><p>&quot;<strong>Name:</strong>&quot; in filter &quot;Name&quot;. <code>|</code> separates multiple strings or WildCard patterns to match in the same file name. For example, to find files with names containing &quot;foo&quot; or &quot;bar&quot;, enter <code>foo|bar</code> and select Contains. <em>NOTE: This does not apply when match mode RegExp is selected.</em></p></li>
 <li><p>&quot;<strong>Path:</strong>&quot; in filter &quot;Path&quot;. Same as for &quot;<strong>Name:</strong>&quot;.</p></li>
 <li><p>&quot;<strong>Skip dirs with name:</strong>&quot; in filter &quot;Skipped dirs&quot;. Same as for &quot;<strong>Name:</strong>&quot;.</p></li>
-<li><p>&quot;<strong>Extension:</strong>&quot; in filter &quot;Type&quot;. <code>|</code> separates multiple extensions. Example: <code>.png|.svg|.gif|.jpg</code> .</p></li>
+<li><p>&quot;<strong>Extension:</strong>&quot; in filter &quot;Type&quot;. <code>|</code> separates multiple extensions. Example: <code>png|svg|gif|jpg|jpeg</code> .</p></li>
 <li><p>&quot;<strong>UID:</strong>&quot; and &quot;<strong>GID:</strong>&quot;, &quot;<strong>MODE:</strong>&quot; in filter &quot;Misc&quot;.</p></li>
 </ul>
 <p>Leading and trailing whitespace is stripped. Whitespace around <code>|</code> is also stripped when it is a separator. Blank items are ignored. One set of enclosing &quot;&quot; is removed. Thus <code>foo  ||  bar |</code> or <code>&quot;foo&quot; | &quot;bar&quot;</code> are the same as <code>foo|bar</code>.</p>
 <p>To specify leading or trailing whitespace, enclose the string in &quot;&quot;. For example, to find files with names containing foo or bar followed by a space, enter <code>&quot;foo &quot;|&quot;bar &quot;</code> in &quot;Name:&quot; and select Contains.</p>
-<p>Empty strings specified as <code>&quot;&quot;</code> are ignored: <code>&quot;&quot;|foo|&quot;&quot;|</code> is the same as <code>foo</code>. The only exception from this rule is combobox &quot;<strong>Extension:</strong>&quot; where <code>&quot;&quot;</code> may be entered to specify file names without an extension, for example <code>&quot;&quot;|.txt|.py</code>.</p>
+<p>Empty strings specified as <code>&quot;&quot;</code> are ignored: <code>&quot;&quot;|foo|&quot;&quot;|</code> is the same as <code>foo</code>. The only exception from this rule is combobox &quot;<strong>Extension:</strong>&quot; where <code>&quot;&quot;</code> may be entered to specify file names without an extension, for example <code>&quot;&quot;|txt|py|sh</code>.</p>
 <p><em><strong>NOTE 1</strong></em>: <code>|</code> is NOT a separator when RegExp match mode is selected. It is instead a part of regular expression. That is, RegExp mode always uses entered string as one regular expression. Leading and trailing whitespace is stripped and one set of enclosing &quot;&quot; is removed, so to find file names ending with a space enter <code>&quot; $&quot;</code> .</p>
 <p><em><strong>NOTE 2</strong></em>: <code>|</code> is NOT a separator in field &quot;<strong>Line:</strong>&quot; in filter &quot;Content&quot;. This is to allow searching files for literal <code>|</code>.</p>
 <p>If it is not clear how the input text was processed for searching, take a look at the Log.</p>
@@ -158,10 +171,9 @@ foo|bar       -- find files with names foo or bar
 <p>When match mode is RegExp, this is achieved by compiling regex with option re.IGNORECASE. Reference: <a href="https://docs.python.org/3/library/re.html#re.IGNORECASE" class="uri">https://docs.python.org/3/library/re.html#re.IGNORECASE</a> .</p>
 <p>For all other match modes this is achieved by converting strings to lower case with casefold(). Reference: <a href="https://docs.python.org/3/library/stdtypes.html#str.casefold" class="uri">https://docs.python.org/3/library/stdtypes.html#str.casefold</a> .</p>
 <h3 id="file-name-extensions">File name extensions</h3>
-<p>File name extensions may be specified in combobox <strong>Extension:</strong> in filter &quot;Type&quot;. For example: <code>.py</code> or <code>.htm|.html</code>.</p>
-<p>Note that the leading dot must be included with each extension.</p>
+<p>File name extensions may be specified in combobox <strong>Extension:</strong> in filter &quot;Type&quot;. For example: <code>py</code> or <code>txt|htm|html</code>. Do not include the leading dot.</p>
 <p>File name extensions are always matched in case-insensitive manner via casefold().</p>
-<p>To match file names without an extension, that is when extension is an empty string, enter <code>&quot;&quot;</code>. For example: <code>&quot;&quot;|.txt|.md</code> .</p>
+<p>To match file names without an extension, that is when extension is an empty string, enter <code>&quot;&quot;</code>. For example: <code>&quot;&quot;|txt|md</code> .</p>
 <p>Extension cannot be the whole file name: dotfiles such as .vim, .emacs, .config have no extension.</p>
 <h3 id="filter-misc">Filter &quot;Misc&quot;</h3>
 <p><strong>UID:</strong> and <strong>GID:</strong> are for specifying file owner's User ID and Group ID respectively. Input will be converted into a list of integers. Use <code>|</code> to specify several numbers, e.g, <code>0|1000|1003</code> .</p>
@@ -206,9 +218,11 @@ foo|bar       -- find files with names foo or bar
 <p><em>right-click -&gt; Copy All -&gt; Copy Paths/Directories/Names</em>: for all selected items. Values are quoted and joined by space into one line, ready for pasting into a terminal.</p>
 <p><em>right-click -&gt; Copy All -&gt; Copy Linewise -&gt; Copy Paths/Directories/Names</em>: for all selected items. Each value is put on a separate line. This can be pasted into a file for further processing or to be used as an input.</p>
 <p>NOTE: commands Copy Path/Directory/Name assume that Path/Directory/Name has no newlines.</p>
-<h3 id="miscellaneous-notes">Miscellaneous notes</h3>
-<p>When OS is Windows, paths of directories may be entered in &quot;Directories:&quot; and &quot;Skip directories:&quot; with <code>\</code> or <code>/</code> as path separator. However, during search path separators are normalized to <code>\</code>. Thus use <code>\</code> in filter &quot;Path&quot;.</p>
-<p>When OS is Windows, the following columns seem to always have value 0: SIZE of directories, UID, GID, NLINK, INO.</p>
+<h2 id="bugs">Bugs</h2>
+<p>The find process cannot be cancelled and the status line is not updated while searching inside a file (filter &quot;Content&quot; is active). If you get stuck while searching with a very slow regex in a very large file, you will have to terminate the program from task manager.</p>
+<p>The find process cannot be cancelled while results are being displayed (status line says &quot;displaying...&quot;). This can be a problem when there are many thousands results: displaying them all can take a long time and consume a lot of memory. By default, the find process will ask for confirmation if there are &gt;50000 results before displaying them. This number is determined by option MAX_RESULTS.</p>
+<p>When OS is Windows, paths of directories may be entered in &quot;Directories:&quot; and &quot;Skip directories:&quot; with <code>\</code> or <code>/</code> as path separator. However, path separators are normalized to <code>\</code> during the search. Thus <code>\</code> must be used in filter &quot;Path&quot;.</p>
+<p>When OS is Windows, the following columns seem to always have value 0: UID, GID, NLINK, INO.</p>
 <p align="center">
 --- The End ---
 </p>

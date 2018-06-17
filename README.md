@@ -1,21 +1,17 @@
-**kintterToys** contains one program: **kintterFind**.
-
-VERSION: 2018-03
-
-WEBSITE: <https://github.com/vim-voom/kintterToys>
-
-AUTHOR: see file AUTHOR
-
-LICENSE: GNU General Public License Version 3
+**kintterToys** contains one program: **kintterFind**  
+VERSION: 2018-06  
+WEBSITE: <https://github.com/vim-voom/kintterToys>  
+AUTHOR: see file AUTHOR  
+LICENSE: GNU General Public License Version 3  
 
 
 kintterFind
 ===========
 
 **kintterFind** is a [Python](https://www.python.org/) program with
-[Tk/Ttk](http://www.tcl.tk/) GUI (Tkinter) for finding files. It uses
-[scandir()](https://pypi.python.org/pypi/scandir) to traverse the file system
-every time a search is performed (non-indexing search, like Unix `find`).
+[Tk/Ttk](http://www.tcl.tk/) GUI (Tkinter) for finding files.
+It does non-indexing file search (like Unix `find`) and uses
+[scandir()](https://pypi.python.org/pypi/scandir) to traverse the file system.
 It is intended for the so-called Linux desktop. It also works on Windows.
 It is naturally lightweight, portable, desktop-independent, and telemetry-free.
 
@@ -27,14 +23,15 @@ It is naturally lightweight, portable, desktop-independent, and telemetry-free.
 Requirements
 ------------
 
-**Python 3** and **Tkinter** (which implies Tcl/Tk/Ttk) are required.
-Python version >=3.4 is required. Python version >=3.5 is recommended.
+The only requirements are **Python 3** and **Tkinter** (which implies
+Tcl/Tk/Ttk). Python version >=3.4 is required. Python version >=3.5 is
+recommended.
 
 Most Linux distros have Python 3 installed by default. Run command `python3` in
-terminal and check version number. If it is >=3.5, you only need to install
-Tkinter. To see if Tkinter is installed, try the following commands in python3
-shell:
+a terminal and check version number: if it is >=3.5, you only need to install
+Tkinter. To check if Tkinter is installed, run the following commands:
 
+    $ python3
     >>> import tkinter
     >>> tkinter._test()
 
@@ -46,6 +43,8 @@ Linux distros usually do not install Tkinter by default. Commands to install it:
         $ sudo apt-get install python3-tk
     Fedora:
         $ sudo dnf install python3-tkinter
+    openSUSE:
+        $ sudo zypper install python3-tk
     PCLinuxOS:
         $ su -c 'apt-get install tkinter3'
     Slackware:
@@ -66,18 +65,25 @@ signs in column headings (triangles) and check marks on filter tabs (squares).
 Installing and starting
 -----------------------
 
-**kintterToys** is self-contained and portable. Download and extract it
-anywhere you have permission to write, e.g., ~/Scripts/kintterToys.
-Open terminal in the program directory and start **kintterFind** with the
-following command:
+**kintterFind** is self-contained and portable. It can be run from any
+directory without installation. Download kintterToys:
+
+    $ cd ~/Downloads
+    $ curl -LOJ https://github.com/vim-voom/kintterToys/archive/master.zip
+    $ unzip kintterToys-master.zip
+    $ cd kintterToys-master
+
+Start **kintterFind** with the following command:
 
     $ python3 start_kintterFind.py
 
 If there are no errors and GUI appears, it's working.
 
-An example .desktop file is included: [examples/kintterFind.desktop](./examples/kintterFind.desktop) .
+An example .desktop file is included:
+[examples/kintterFind.desktop](./examples/kintterFind.desktop) .
 
-To install kintterToys to /opt for all users, see [examples/install_kintterToys.sh](./examples/install_kintterToys.sh) .
+To do a proper install to /opt, see
+[examples/install_kintterToys.sh](./examples/install_kintterToys.sh) .
 
 
 Config file and config directory
@@ -95,7 +101,7 @@ All available configuration options are documented in the example config file
 For maximum enjoyment, the config file should be viewed and edited in a text
 editor with Python syntax highlighting. An invalid config file option usually
 will not prevent the program from starting and will be reported in the Log.
-It is still advisable after changing config file to start kintterFind from
+It is still advisable after changing config file to start kintterFind from a
 terminal and watch for errors.
 
 The name of config file is always "kintterFind.config.py". The config directory
@@ -167,7 +173,7 @@ Menus "Columns", "Ttk Theme" are detachable for enhanced clicking experience.
 
 ***Filters***
 
-Filters are organized in tabs at the bottom. To turn a filter on/off,
+Search filters are organized in tabs at the bottom. To turn a filter on/off,
 `right-click` on its tab with the mouse. Alternatively, first select the filter
 tab with left single-click, then left `double-click` it or press `Space`. Tabs
 can also be traversed with `Ctrl-Tab` and `Shift-Ctrl-Tab`.
@@ -196,17 +202,16 @@ expected thing: `Ctrl-c`, `Ctrl-v`, `Ctrl-a`, `Ctrl-z`, `Ctrl-y`.
 `Ctrl-Tab` switches between Log and Results.
 
 
-### "|" separates multiple search queries
+### "|" separates multiple directories and search queries
 
-Character `|` is used to separate multiple queries when specifying directories
-and search queries except when match mode is RegExp. This applies to the
-following fields:
+Character `|` is used to separate multiple directories and search queries
+(except when match mode is RegExp). This applies to the following fields:
 
 * "**Directories:**". `|` separates multiple directories to search.
   Example: `~/.config | ~/.local` .
 
-* "**Skip directories:**" in filter "Skipped dirs". Same as for
-  "**Directories:**".
+* "**Skip directories:**" in filter "Skipped dirs". `|` separates multiple
+  directories to skip (prune). Example: `/dev|/proc|/sys` .
 
 * "**Name:**" in filter "Name". `|` separates multiple strings or WildCard
   patterns to match in the same file name. For example, to find files with
@@ -218,7 +223,7 @@ following fields:
 * "**Skip dirs with name:**" in filter "Skipped dirs". Same as for "**Name:**".
 
 * "**Extension:**" in filter "Type". `|` separates multiple extensions.
-  Example: `.png|.svg|.gif|.jpg` .
+  Example: `png|svg|gif|jpg|jpeg` .
 
 * "**UID:**" and "**GID:**", "**MODE:**" in filter "Misc".
 
@@ -234,7 +239,7 @@ space, enter `"foo "|"bar "` in "Name:" and select Contains.
 Empty strings specified as `""` are ignored: `""|foo|""|` is the same as `foo`.
 The only exception from this rule is combobox "**Extension:**" where `""` may
 be entered to specify file names without an extension, for example
-`""|.txt|.py`.
+`""|txt|py|sh`.
 
 _**NOTE 1**_: `|` is NOT a separator when RegExp match mode is selected. It is
 instead a part of regular expression. That is, RegExp mode always uses entered
@@ -327,15 +332,13 @@ Reference: <https://docs.python.org/3/library/stdtypes.html#str.casefold> .
 ### File name extensions
 
 File name extensions may be specified in combobox **Extension:** in filter
-"Type". For example: `.py` or `.htm|.html`.
-
-Note that the leading dot must be included with each extension.
+"Type". For example: `py` or `txt|htm|html`. Do not include the leading dot.
 
 File name extensions are always matched in case-insensitive manner via
 casefold().
 
 To match file names without an extension, that is when extension is an empty
-string, enter `""`. For example: `""|.txt|.md` .
+string, enter `""`. For example: `""|txt|md` .
 
 Extension cannot be the whole file name: dotfiles such as .vim, .emacs, .config
 have no extension.
@@ -498,14 +501,26 @@ NOTE: commands Copy Path/Directory/Name assume that Path/Directory/Name has no
 newlines.
 
 
-### Miscellaneous notes
+Bugs
+----
+
+The find process cannot be cancelled and the status line is not updated while
+searching inside a file (filter "Content" is active). If you get stuck while
+searching with a very slow regex in a very large file, you will have to
+terminate the program from task manager.
+
+The find process cannot be cancelled while results are being displayed (status
+line says "displaying..."). This can be a problem when there are many thousands
+results: displaying them all can take a long time and consume a lot of memory.
+By default, the find process will ask for confirmation if there are >50000
+results before displaying them. This number is determined by option MAX_RESULTS.
 
 When OS is Windows, paths of directories may be entered in "Directories:" and
-"Skip directories:" with `\` or `/` as path separator. However, during search
-path separators are normalized to `\`. Thus use `\` in filter "Path".
+"Skip directories:" with `\` or `/` as path separator. However, path separators
+are normalized to `\` during the search. Thus `\` must be used in filter "Path".
 
-When OS is Windows, the following columns seem to always have value 0: SIZE of
-directories, UID, GID, NLINK, INO.
+When OS is Windows, the following columns seem to always have value 0: UID,
+GID, NLINK, INO.
 
 
 <p align="center">

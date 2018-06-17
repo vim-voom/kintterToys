@@ -1,4 +1,11 @@
 kintterToys version history
 
+version 2018-06:
+ + Partial results are now displayed after find is cancelled.
+ + Combobox "Extension:": extensions should now be typed without the leading dot.
+ + New config file option: MAX_RESULTS.
+ + New menu command: View -> Clear Results.
+ + New menu command: Help -> Geometry.
+
 version 2018-03:
  + First public version.

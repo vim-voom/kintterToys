@@ -983,9 +983,12 @@ class Application:
                     value=th)
         self.var_rdbTtkTheme.set(self.ttkStyle.theme_use())
 
+        mnView.add_command(label='Clear Results', underline=1, command=self.c_trvw_clear)
+
         # Menu 'Help'
         mnHelp = tk.Menu(mnBar, tearoff=0)
-        mnHelp.add_command(label='README.html', underline=0, command=self.c_readme)
+        mnHelp.add_command(label='README.html', underline=0, command=self.c_help_readme)
+        mnHelp.add_command(label='Geometry', underline=0, command=self.c_help_geometry)
         mnBar.add_cascade(label='Help', underline=0, menu=mnHelp)
 
         self.mnEdit = mnEdit # need it for postcommand
@@ -1232,10 +1235,18 @@ class Application:
         else: self.root.destroy()
 
 
-    def c_readme(self):
+    def c_help_readme(self):
         """Open README.html with associated program."""
         if self._isBusy: return
         startfile(_path.join(PROGRAMDIR, 'README.html'), self.log_put)
+
+
+    def c_help_geometry(self):
+        """Print to Log app geometry to help set option GEOMETRY."""
+        if self._isBusy: return
+        self.log_put(LHR)
+        self.log_put('GEOMETRY = "%s"' %  self.root.winfo_geometry())
+        self.log_show()
 
 
     def c_now_to_clipboard(self):
@@ -1287,6 +1298,14 @@ class Application:
         for c in cols:
             if c in self.trvwColumnsB:
                 self.trvwColumns2.append(c)
+
+
+    def c_trvw_clear(self):
+        """Clear Results."""
+        if self._isBusy: return
+        _trvw = self.trvwResults
+        _trvw.delete(*_trvw.get_children())
+        self.RSLTS = []
 
 
     def c_trvw_sort(self, how, c=None):
@@ -1868,7 +1887,9 @@ class Application:
             querExt = inpstr_to_items(self.cmbbExts.get(), sep='|', noempty=False)
             if querExt:
                 doExt = True
-                querExt = [s.casefold() for s in querExt]
+                for (i, s) in enumerate(querExt):
+                    if s:
+                        querExt[i] = '.%s' %(s.casefold())
                 yesExt = self.var_opmExts.get()
                 logLines.append('%s %s' %(yesExt, repr(querExt)))
                 querExt = {}.fromkeys(querExt)
@@ -2003,8 +2024,8 @@ class Application:
             ok, notok = False, False
             for (inputDir, skipDirs) in inputDirs_v2:
                 for (endir, en, isDir, err) in scantree(inputDir, recurse=var_ckbRecurse, skipPaths=skipDirs, skipNames=pttnsSkipNames, fltName=fltfuncSkipNames):
-                    # TESTING: reduce scan speed to 1 second per item
-                    #time.sleep(1)
+                    # TESTING: reduce scan speed
+                    #time.sleep(0.2)
                     ### periodically update Statusbar and check if CANCEL button was pressed
                     if self._isTime:
                         self._isTime = False
@@ -2014,12 +2035,11 @@ class Application:
                                         tNow-tT1, tNow-tT0)
                         self.master.update()
                         if self._isCancelled:
-                            self.status_put('CANCELLED.', cntFound, cntItems, Cnt.d,
+                            self.status_put('cancelled...', cntFound, cntItems, Cnt.d,
                                             '%s+%s+%s' %(len(resErrs1), len(resErrs2), len(resErrs3)),
                                             _time()-tT1, _time()-tT0)
                             self._timer.cancel()
-                            ok = True
-                            return
+                            break
 
                     ### what we got from scandir()
                     if err:
@@ -2201,6 +2221,8 @@ class Application:
                     # add this row to results
                     resTable.append(tuple(res))
                     # end of processing found item -------------------
+                if self._isCancelled:
+                    break
 
             ### end of scanning --------------------------------------
             self._timer.cancel()
@@ -2208,19 +2230,31 @@ class Application:
             lenErrs = '%s+%s+%s' %(len(resErrs1), len(resErrs2), len(resErrs3))
 
             # cannot cancel while tree is being populated
-            self.status_put('displaying...', cntFound, cntItems, Cnt.d, lenErrs, tT1, _time()-tT0)
             self.btnCANCEL['state'] = tk.DISABLED
+            self.status_put('displaying...', cntFound, cntItems, Cnt.d, lenErrs, tT1, _time()-tT0)
             self.master.update_idletasks()
 
-            # warn if there are too many results to display
-            #if cntFound > 10:
-            if cntFound > 100000:
+            ### save errors ------------------------------------------
+            if resErrs1:
+                logLines.append('\n**OSError** (during file system traversal)')
+                resErrs1.sort()
+                logLines.extend(resErrs1)
+            if resErrs2:
+                logLines.append('\n**OSError** (during item processing)')
+                resErrs2.sort()
+                logLines.extend(resErrs2)
+            if resErrs3:
+                logLines.append('\n**Exception** (during file content search)')
+                resErrs3.sort()
+                logLines.extend(resErrs3)
+
+            ### warn if there are too many results to display --------
+            if cntFound > OPT.MAX_RESULTS:
                 tT00 = _time()
                 yesno = tkMessageBox.askyesno('%s -- Confirm' % TITLE, 'Display %s results?' % cntFound)
                 tT0 += _time() - tT00
                 if not yesno:
-                    self._isCancelled = True
-                    self.status_put('CANCELLED.', cntFound, cntItems, Cnt.d, lenErrs, tT1, _time()-tT0)
+                    logLines.append('\nRESULTS NOT DISPLAYED')
                     ok = True
                     return
 
@@ -2240,20 +2274,6 @@ class Application:
                 h = '%s%s' %(_trvw.heading('Directory', option='text'), SL2H)
                 _trvw.heading('Directory', text=h)
                 self._sortedCID = 'Directory'
-
-            ### save errors ------------------------------------------
-            if resErrs1:
-                logLines.append('\n**OSError** (during file system traversal)')
-                resErrs1.sort()
-                logLines.extend(resErrs1)
-            if resErrs2:
-                logLines.append('\n**OSError** (during item processing)')
-                resErrs2.sort()
-                logLines.extend(resErrs2)
-            if resErrs3:
-                logLines.append('\n**Exception** (during file content search)')
-                resErrs3.sort()
-                logLines.extend(resErrs3)
 
             ok = True
 
@@ -2276,7 +2296,7 @@ class Application:
             self.btnCANCEL['state'] = tk.DISABLED
             # print to log
             self.txtLog['state'] = tk.NORMAL
-            self.log_put('\n'.join(logLines), True)
+            self.log_put('\n'.join(logLines))
             self.master.update() # to discard clicks on UI, e.g., during prolonged displaying
             self._isBusy = False
             #self._isCancelled = False
@@ -2285,10 +2305,10 @@ class Application:
             if not ok or notok:
                 self.lblStatus['text'] = 'ERROR OCCURRED DURING FIND, SEE LOG FOR TRACEBACK'
                 self.lblStatus.configure(background='yellow', foreground='red')
-            elif not self._isCancelled:
-                self.status_put('DONE.', cntFound, cntItems, Cnt.d, lenErrs, tT1, _time()-tT0, toLog=True)
             else:
-                self.log_put('\nCANCELLED.', True)
+                x = 'DONE.' if not self._isCancelled else 'CANCELLED.'
+                self.status_put(x, cntFound, cntItems, Cnt.d, lenErrs, tT1, _time()-tT0, True)
+            self.txtLog.see(tk.END)
 
         # end of FIND
 
@@ -2596,7 +2616,7 @@ def get_input_content(entCont, var_opmContMode, var_ckbContIC,
     kwargs = {}
     enc = cmbbContEnc.get()
     if '#' in enc:
-        enc, x = enc.split('#',1)
+        enc, x = enc.split('#', 1)
     enc = enc.strip()
     if not enc:
             msgbox_inperror('Filter "Content": no encoding')
