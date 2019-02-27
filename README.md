@@ -1,5 +1,5 @@
 **kintterToys** contains one program: **kintterFind**  
-VERSION: 2018-06  
+VERSION: 2019-02  
 WEBSITE: <https://github.com/vim-voom/kintterToys>  
 AUTHOR: see file AUTHOR  
 LICENSE: GNU General Public License Version 3  
@@ -8,12 +8,13 @@ LICENSE: GNU General Public License Version 3
 kintterFind
 ===========
 
-**kintterFind** is a [Python](https://www.python.org/) program with
-[Tk/Ttk](http://www.tcl.tk/) GUI (Tkinter) for finding files.
-It does non-indexing file search (like Unix `find`) and uses
-[scandir()](https://pypi.python.org/pypi/scandir) to traverse the file system.
-It is intended for the so-called Linux desktop. It also works on Windows.
-It is naturally lightweight, portable, desktop-independent, and telemetry-free.
+**kintterFind** is a GUI program for finding files. It performs non-indexing
+file searches (like Unix `find` and `grep`). It is written in
+[Python](https://www.python.org/), has [Tk/Ttk](http://www.tcl.tk/) GUI
+(Tkinter), and uses [scandir()](https://pypi.org/project/scandir/) to traverse
+the file system. It is intended for GNU/Linux. It also works on Windows.
+It is naturally telemetry-free, desktop-independent, portable, configurable and
+light-weight.
 
 <p align="center">
 <img src="./html_files/kintterFind.png">
@@ -66,7 +67,8 @@ Installing and starting
 -----------------------
 
 **kintterFind** is self-contained and portable. It can be run from any
-directory without installation. Download kintterToys:
+directory without installation: download, extract, launch
+`start_kintterFind.py`. Download kintterToys:
 
     $ cd ~/Downloads
     $ curl -LOJ https://github.com/vim-voom/kintterToys/archive/master.zip
@@ -80,10 +82,10 @@ Start **kintterFind** with the following command:
 If there are no errors and GUI appears, it's working.
 
 An example .desktop file is included:
-[examples/kintterFind.desktop](./examples/kintterFind.desktop) .
+[install/kintterFind.desktop](./install/kintterFind.desktop) .
 
 To do a proper install to /opt, see
-[examples/install_kintterToys.sh](./examples/install_kintterToys.sh) .
+[install/install_kintterToys.sh](./install/install_kintterToys.sh) .
 
 
 Config file and config directory
@@ -92,21 +94,22 @@ Config file and config directory
 By default, during startup kintterFind looks for config file
 `kintterFind.config.py` in config directory `~/.config/kintterToys/`.
 
-To create config files in the default location, copy example config directory
-`examples/config/kintterToys/` to `~/.config/`.
-
-All available configuration options are documented in the example config file
-[kintterFind.config.py](./examples/config/kintterToys/kintterFind.config.py) .
+A reference config file is included:
+[./config/kintterFind.config.py](./config/kintterFind.config.py) . Copy it to
+`~/.config/kintterToys/` if you want to change some options.
 
 For maximum enjoyment, the config file should be viewed and edited in a text
-editor with Python syntax highlighting. An invalid config file option usually
-will not prevent the program from starting and will be reported in the Log.
-It is still advisable after changing config file to start kintterFind from a
-terminal and watch for errors.
+editor with Python syntax highlighting. An invalid config file option should
+not prevent the program from starting and will be reported in the Log. It is
+still advisable after changing config file to start kintterFind from a terminal
+and watch for errors.
 
-The name of config file is always "kintterFind.config.py". The config directory
+The name of the config file is always "kintterFind.config.py". The directory
 where this file is located can be changed from the default via command line
 option `--configdir`. Config directory and config file may be symbolic links.
+
+Custom Results Theme files may also be put in the config directory, see
+[./config/readme.txt](./config/readme.txt) .
 
 
 Command line options
@@ -137,24 +140,31 @@ Usage
 * Directories in fields "Directories:" and "Skip directories:" should be typed
   as absolute paths. `~` and environment variables such as `$HOME` may be used.
   To specify multiple directories, separate them with `|`.
+  
+* Directory traversal options:
+  + `recurse`: Search all subdirectories.
+  + `xdev`: Do not descend directories on other filesystems, that is stay on
+    the same filesystem (like find's -xdev). Excluded directories will be
+    reported in the Log as "xdev-ed". Such directories themselves (mount
+    points) are not excluded and may appear in Results.
 
-* Directories specified in filter "Skipped dirs" are ***pruned***, that is not
-  descended into.
+* Symbolic links are never followed during the search.
 
+* Directories specified in filter "Skipped dirs" are skipped and *pruned*, that
+  is not descended into. Such directories themselves will never appear in Results.
+  
 * To select/deselect a filter, right-click on its tab. If no filters are
   selected, the entire directory listing will be produced.
 
 * When searching, selected filters are applied in the order in which they are
   arranged in tabs: from left tab to right tab, top row first within the tab.
 
-* Symbolic links are never followed during the search.
-
-* Character `|` works as a separator in most fields. It separates directories
-  and search queries. This is described in details below.
+* Character `|` is used to separate multiple directories and search strings in
+  most entry fields. The exceptions are: when match mode is RegExp, in field
+  "Line" in filter "Content". This is described in details below.
 
 * Leading and trailing whitespace does not matter when entering text in fields.
-  In cases where it may be necessary to include leading or trailing space,
-  surround the string with "".
+  To include leading or trailing space in the search string, surround it with "".
 
 * Since this is Python 3, all strings are Unicode strings. File paths are
   converted by Python into Unicode strings. Unusual file names, such as file
@@ -166,10 +176,14 @@ Usage
 
 `Ctrl-l` puts the focus into combobox Directories.
 
-Standard Tkinter behavior: `Tab` and `Shift-Tab` traverse visible widgets,
+`Down Arrow` in a combobox pops up its dropdown list.
+
 `Space` toggles check marks and presses buttons.
 
-Menus "Columns", "Ttk Theme" are detachable for enhanced clicking experience.
+`Tab` and `Shift-Tab` traverse visible widgets.
+
+Menus "Columns", "Ttk Theme", "Results Theme" are detachable for enhanced
+clicking experience.
 
 ***Filters***
 
@@ -202,10 +216,13 @@ expected thing: `Ctrl-c`, `Ctrl-v`, `Ctrl-a`, `Ctrl-z`, `Ctrl-y`.
 `Ctrl-Tab` switches between Log and Results.
 
 
-### "|" separates multiple directories and search queries
+### "|" separates multiple directories and search strings
 
-Character `|` is used to separate multiple directories and search queries
-(except when match mode is RegExp). This applies to the following fields:
+Character `|` is used to separate multiple directories and search strings in
+most entry fields. The exceptions are: when match mode is RegExp, in field
+"Line" in filter "Content".
+
+`|` is a separator in the following fields unless match mode is RegExp:
 
 * "**Directories:**". `|` separates multiple directories to search.
   Example: `~/.config | ~/.local` .
@@ -248,7 +265,8 @@ and one set of enclosing "" is removed, so to find file names ending with a
 space enter `" $"` .
 
 _**NOTE 2**_: `|` is NOT a separator in field "**Line:**" in filter "Content".
-This is to allow searching files for literal `|`.
+This is to allow searching files for literal `|`. There is no way to specify
+multiple search strings in this filter.
 
 If it is not clear how the input text was processed for searching, take a look
 at the Log.
@@ -464,9 +482,9 @@ seconds, if there are any. This should be kept in mind when finding files by
 timestamp. The exact time as reported by Python and used by filter "Time" can
 be seen in file Properties.
 
-Command Properties in the right-click menu for one file prints *current*
-information about the file. This information may differ from what is displayed
-in columns if the file at this path has changed since the last search.
+Command Properties in the right-click menu prints the *current* information
+about the file. This information may differ from what is displayed in columns
+if the file at this path has changed since the last search.
 
 File size units K, M, G, T, P are kibi-, mebi-, etc. (power of 1024 bytes).
 File size units k, m, g, t, p are kilo-, mega-, etc. (power of 1000 bytes).
@@ -484,30 +502,28 @@ Path/Directory/Name to the clipboard, switch to terminal, and then use command
 line tools. For example, to move files to trash use
 [trash-cli](https://github.com/andreafrancia/trash-cli) or similar tool.
 
-Mouse right-click menu provides various ways to copy Path/Directory/Name of
-selected files to the clipboard:
+Mouse right-click popup menu provides various ways to copy Path/Directory/Name
+of selected files to the clipboard:
 
-*right-click -> Copy Path/Directory/Name*: for the current item under the cursor.
+* *Copy Path/Directory/Name*: for the current item under the cursor.
 
-*right-click -> Copy All -> Copy Paths/Directories/Names*: for all selected
-items. Values are quoted and joined by space into one line, ready for pasting
-into a terminal.
+* *Copy All -> Copy Paths/Directories/Names*: for all selected items. Values
+  are quoted and joined by space into one line, ready for pasting into a
+  terminal.
 
-*right-click -> Copy All -> Copy Linewise -> Copy Paths/Directories/Names*: for
-all selected items. Each value is put on a separate line. This can be pasted
-into a file for further processing or to be used as an input.
-
-NOTE: commands Copy Path/Directory/Name assume that Path/Directory/Name has no
-newlines.
+* *Copy All -> Copy Linewise -> Copy Paths/Directories/Names*: for all selected
+  items. Each value is put on a separate line. This can be pasted into a file
+  for further processing. *Copy Linewise* commands will display an error
+  message and abort if some Path/Directory/Name contains character `\n`.
 
 
 Bugs
 ----
 
 The find process cannot be cancelled and the status line is not updated while
-searching inside a file (filter "Content" is active). If you get stuck while
+searching file's content (filter "Content" is active). If you get stuck while
 searching with a very slow regex in a very large file, you will have to
-terminate the program from task manager.
+terminate the program.
 
 The find process cannot be cancelled while results are being displayed (status
 line says "displaying..."). This can be a problem when there are many thousands
@@ -515,12 +531,15 @@ results: displaying them all can take a long time and consume a lot of memory.
 By default, the find process will ask for confirmation if there are >50000
 results before displaying them. This number is determined by option MAX_RESULTS.
 
-When OS is Windows, paths of directories may be entered in "Directories:" and
-"Skip directories:" with `\` or `/` as path separator. However, path separators
-are normalized to `\` during the search. Thus `\` must be used in filter "Path".
+When OS is Windows, directories may be specified in "Directories:" and "Skip
+directories:" with `\` or `/` as path separator. However, path separators are
+normalized to `\` during the search. Thus `\` must be used in filter "Path".
 
-When OS is Windows, the following columns seem to always have value 0: UID,
-GID, NLINK, INO.
+When OS is Windows, the following columns always have zeros in them:
+UID, GID, NLINK, INO, DEV.
+
+When OS is Windows, checkbutton `xdev` does not work right and should be left
+unchecked.
 
 
 <p align="center">

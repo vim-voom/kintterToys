@@ -4,7 +4,7 @@
   <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
   <meta http-equiv="Content-Style-Type" content="text/css" />
   <meta name="generator" content="pandoc" />
-  <title>README</title>
+  <title>kintterToys</title>
   <style type="text/css">
       code{white-space: pre-wrap;}
       span.smallcaps{font-variant: small-caps;}
@@ -23,12 +23,12 @@
 <li><a href="#command-line-options">Command line options</a></li>
 <li><a href="#usage">Usage</a><ul>
 <li><a href="#keyboard-and-mouse">Keyboard and mouse</a></li>
-<li><a href="#separates-multiple-directories-and-search-queries">&quot;|&quot; separates multiple directories and search queries</a></li>
+<li><a href="#separates-multiple-directories-and-search-strings">"|" separates multiple directories and search strings</a></li>
 <li><a href="#match-modes">Match modes</a></li>
 <li><a href="#ignorecase">IgnoreCase</a></li>
 <li><a href="#file-name-extensions">File name extensions</a></li>
-<li><a href="#filter-misc">Filter &quot;Misc&quot;</a></li>
-<li><a href="#filter-content">Filter &quot;Content&quot;</a></li>
+<li><a href="#filter-misc">Filter "Misc"</a></li>
+<li><a href="#filter-content">Filter "Content"</a></li>
 <li><a href="#handling-or-errors-during-find">Handling or errors during find</a></li>
 <li><a href="#columns">Columns</a></li>
 <li><a href="#file-operations">File operations</a></li>
@@ -38,12 +38,12 @@
 </ul>
 </div>
 <p><strong>kintterToys</strong> contains one program: <strong>kintterFind</strong><br />
-VERSION: 2018-06<br />
+VERSION: 2019-02<br />
 WEBSITE: <a href="https://github.com/vim-voom/kintterToys" class="uri">https://github.com/vim-voom/kintterToys</a><br />
 AUTHOR: see file AUTHOR<br />
 LICENSE: GNU General Public License Version 3</p>
 <h1 id="kintterfind">kintterFind</h1>
-<p><strong>kintterFind</strong> is a <a href="https://www.python.org/">Python</a> program with <a href="http://www.tcl.tk/">Tk/Ttk</a> GUI (Tkinter) for finding files. It does non-indexing file search (like Unix <code>find</code>) and uses <a href="https://pypi.python.org/pypi/scandir">scandir()</a> to traverse the file system. It is intended for the so-called Linux desktop. It also works on Windows. It is naturally lightweight, portable, desktop-independent, and telemetry-free.</p>
+<p><strong>kintterFind</strong> is a GUI program for finding files. It performs non-indexing file searches (like Unix <code>find</code> and <code>grep</code>). It is written in <a href="https://www.python.org/">Python</a>, has <a href="http://www.tcl.tk/">Tk/Ttk</a> GUI (Tkinter), and uses <a href="https://pypi.org/project/scandir/">scandir()</a> to traverse the file system. It is intended for GNU/Linux. It also works on Windows. It is naturally telemetry-free, desktop-independent, portable, configurable and light-weight.</p>
 <p align="center">
 <img src="./html_files/kintterFind.png">
 </p>
@@ -66,13 +66,13 @@ PCLinuxOS:
     $ su -c &#39;apt-get install tkinter3&#39;
 Slackware:
     $ su -c &#39;slackpkg install tcl tk&#39;</code></pre>
-<p>If you are stuck with Python version 3.4, you will also need to install Python module <code>scandir</code> from PyPI via <code>pip</code>. Commands for Debian 8 (&quot;jessie&quot;):</p>
+<p>If you are stuck with Python version 3.4, you will also need to install Python module <code>scandir</code> from PyPI via <code>pip</code>. Commands for Debian 8 ("jessie"):</p>
 <pre><code>$ sudo apt-get install python3-pip python3-dev
 $ sudo pip3 install scandir
 $ sudo apt-get remove python3-pip python3-dev</code></pre>
 <p><a href="https://dejavu-fonts.github.io/">DejaVu fonts</a> or another font family with good coverage of Unicode symbols should be installed in order to display sort signs in column headings (triangles) and check marks on filter tabs (squares).</p>
 <h2 id="installing-and-starting">Installing and starting</h2>
-<p><strong>kintterFind</strong> is self-contained and portable. It can be run from any directory without installation. Download kintterToys:</p>
+<p><strong>kintterFind</strong> is self-contained and portable. It can be run from any directory without installation: download, extract, launch <code>start_kintterFind.py</code>. Download kintterToys:</p>
 <pre><code>$ cd ~/Downloads
 $ curl -LOJ https://github.com/vim-voom/kintterToys/archive/master.zip
 $ unzip kintterToys-master.zip
@@ -80,36 +80,43 @@ $ cd kintterToys-master</code></pre>
 <p>Start <strong>kintterFind</strong> with the following command:</p>
 <pre><code>$ python3 start_kintterFind.py</code></pre>
 <p>If there are no errors and GUI appears, it's working.</p>
-<p>An example .desktop file is included: <a href="./examples/kintterFind.desktop">examples/kintterFind.desktop</a> .</p>
-<p>To do a proper install to /opt, see <a href="./examples/install_kintterToys.sh">examples/install_kintterToys.sh</a> .</p>
+<p>An example .desktop file is included: <a href="./install/kintterFind.desktop">install/kintterFind.desktop</a> .</p>
+<p>To do a proper install to /opt, see <a href="./install/install_kintterToys.sh">install/install_kintterToys.sh</a> .</p>
 <h2 id="config-file-and-config-directory">Config file and config directory</h2>
 <p>By default, during startup kintterFind looks for config file <code>kintterFind.config.py</code> in config directory <code>~/.config/kintterToys/</code>.</p>
-<p>To create config files in the default location, copy example config directory <code>examples/config/kintterToys/</code> to <code>~/.config/</code>.</p>
-<p>All available configuration options are documented in the example config file <a href="./examples/config/kintterToys/kintterFind.config.py">kintterFind.config.py</a> .</p>
-<p>For maximum enjoyment, the config file should be viewed and edited in a text editor with Python syntax highlighting. An invalid config file option usually will not prevent the program from starting and will be reported in the Log. It is still advisable after changing config file to start kintterFind from a terminal and watch for errors.</p>
-<p>The name of config file is always &quot;kintterFind.config.py&quot;. The config directory where this file is located can be changed from the default via command line option <code>--configdir</code>. Config directory and config file may be symbolic links.</p>
+<p>A reference config file is included: <a href="./config/kintterFind.config.py">./config/kintterFind.config.py</a> . Copy it to <code>~/.config/kintterToys/</code> if you want to change some options.</p>
+<p>For maximum enjoyment, the config file should be viewed and edited in a text editor with Python syntax highlighting. An invalid config file option should not prevent the program from starting and will be reported in the Log. It is still advisable after changing config file to start kintterFind from a terminal and watch for errors.</p>
+<p>The name of the config file is always "kintterFind.config.py". The directory where this file is located can be changed from the default via command line option <code>--configdir</code>. Config directory and config file may be symbolic links.</p>
+<p>Custom Results Theme files may also be put in the config directory, see <a href="./config/readme.txt">./config/readme.txt</a> .</p>
 <h2 id="command-line-options">Command line options</h2>
 <p><code>start_kintterFind.py</code> accepts two command line options (may be abbreviated to <code>--c</code> and <code>--d</code>):</p>
 <ul>
-<li><p><code>--configdir {path-to-config-directory}</code> Config directory to use instead of the default <code>~/.config/kintterToys/</code>. This is directory where kintterFind looks for the config file &quot;kintterFind.config.py&quot; during startup. If the path is not an absolute path (after expanding ~, $HOME, etc.) it is assumed to be relative to the program folder, that is directory of &quot;start_kintterFind.py&quot;. This makes it possible to run kintterFind in portable mode. For example, to have config file just outside of the program folder, start kintterFind with the following command:</p>
+<li><p><code>--configdir {path-to-config-directory}</code> Config directory to use instead of the default <code>~/.config/kintterToys/</code>. This is directory where kintterFind looks for the config file "kintterFind.config.py" during startup. If the path is not an absolute path (after expanding ~, $HOME, etc.) it is assumed to be relative to the program folder, that is directory of "start_kintterFind.py". This makes it possible to run kintterFind in portable mode. For example, to have config file just outside of the program folder, start kintterFind with the following command:</p>
 <pre><code>  $ python3 &lt;path&gt;/start_kintterFind.py --c ..</code></pre></li>
-<li><p><code>--directory {path}</code> Directory path or any other string to insert into combobox &quot;Directories:&quot; on startup. Useful for integration with a file manager.</p></li>
+<li><p><code>--directory {path}</code> Directory path or any other string to insert into combobox "Directories:" on startup. Useful for integration with a file manager.</p></li>
 </ul>
 <h2 id="usage">Usage</h2>
 <ul>
-<li><p>Directories in fields &quot;Directories:&quot; and &quot;Skip directories:&quot; should be typed as absolute paths. <code>~</code> and environment variables such as <code>$HOME</code> may be used. To specify multiple directories, separate them with <code>|</code>.</p></li>
-<li><p>Directories specified in filter &quot;Skipped dirs&quot; are <strong><em>pruned</em></strong>, that is not descended into.</p></li>
+<li><p>Directories in fields "Directories:" and "Skip directories:" should be typed as absolute paths. <code>~</code> and environment variables such as <code>$HOME</code> may be used. To specify multiple directories, separate them with <code>|</code>.</p></li>
+<li>Directory traversal options:
+<ul>
+<li><code>recurse</code>: Search all subdirectories.</li>
+<li><code>xdev</code>: Do not descend directories on other filesystems, that is stay on the same filesystem (like find's -xdev). Excluded directories will be reported in the Log as "xdev-ed". Such directories themselves (mount points) are not excluded and may appear in Results.</li>
+</ul></li>
+<li><p>Symbolic links are never followed during the search.</p></li>
+<li><p>Directories specified in filter "Skipped dirs" are skipped and <em>pruned</em>, that is not descended into. Such directories themselves will never appear in Results.</p></li>
 <li><p>To select/deselect a filter, right-click on its tab. If no filters are selected, the entire directory listing will be produced.</p></li>
 <li><p>When searching, selected filters are applied in the order in which they are arranged in tabs: from left tab to right tab, top row first within the tab.</p></li>
-<li><p>Symbolic links are never followed during the search.</p></li>
-<li><p>Character <code>|</code> works as a separator in most fields. It separates directories and search queries. This is described in details below.</p></li>
-<li><p>Leading and trailing whitespace does not matter when entering text in fields. In cases where it may be necessary to include leading or trailing space, surround the string with &quot;&quot;.</p></li>
+<li><p>Character <code>|</code> is used to separate multiple directories and search strings in most entry fields. The exceptions are: when match mode is RegExp, in field "Line" in filter "Content". This is described in details below.</p></li>
+<li><p>Leading and trailing whitespace does not matter when entering text in fields. To include leading or trailing space in the search string, surround it with "".</p></li>
 <li><p>Since this is Python 3, all strings are Unicode strings. File paths are converted by Python into Unicode strings. Unusual file names, such as file names with newlines or invalid encoding, should be avoided even though they seem to be well tolerated.</p></li>
 </ul>
 <h3 id="keyboard-and-mouse">Keyboard and mouse</h3>
 <p><code>Ctrl-l</code> puts the focus into combobox Directories.</p>
-<p>Standard Tkinter behavior: <code>Tab</code> and <code>Shift-Tab</code> traverse visible widgets, <code>Space</code> toggles check marks and presses buttons.</p>
-<p>Menus &quot;Columns&quot;, &quot;Ttk Theme&quot; are detachable for enhanced clicking experience.</p>
+<p><code>Down Arrow</code> in a combobox pops up its dropdown list.</p>
+<p><code>Space</code> toggles check marks and presses buttons.</p>
+<p><code>Tab</code> and <code>Shift-Tab</code> traverse visible widgets.</p>
+<p>Menus "Columns", "Ttk Theme", "Results Theme" are detachable for enhanced clicking experience.</p>
 <p><strong><em>Filters</em></strong></p>
 <p>Search filters are organized in tabs at the bottom. To turn a filter on/off, <code>right-click</code> on its tab with the mouse. Alternatively, first select the filter tab with left single-click, then left <code>double-click</code> it or press <code>Space</code>. Tabs can also be traversed with <code>Ctrl-Tab</code> and <code>Shift-Ctrl-Tab</code>.</p>
 <p><strong><em>Results (Treeview widget)</em></strong></p>
@@ -122,25 +129,26 @@ $ cd kintterToys-master</code></pre>
 <p><strong><em>Log text area</em></strong></p>
 <p>In addition to the right-click menu, standard key combinations should do the expected thing: <code>Ctrl-c</code>, <code>Ctrl-v</code>, <code>Ctrl-a</code>, <code>Ctrl-z</code>, <code>Ctrl-y</code>.</p>
 <p><code>Ctrl-Tab</code> switches between Log and Results.</p>
-<h3 id="separates-multiple-directories-and-search-queries">&quot;|&quot; separates multiple directories and search queries</h3>
-<p>Character <code>|</code> is used to separate multiple directories and search queries (except when match mode is RegExp). This applies to the following fields:</p>
+<h3 id="separates-multiple-directories-and-search-strings">"|" separates multiple directories and search strings</h3>
+<p>Character <code>|</code> is used to separate multiple directories and search strings in most entry fields. The exceptions are: when match mode is RegExp, in field "Line" in filter "Content".</p>
+<p><code>|</code> is a separator in the following fields unless match mode is RegExp:</p>
 <ul>
-<li><p>&quot;<strong>Directories:</strong>&quot;. <code>|</code> separates multiple directories to search. Example: <code>~/.config | ~/.local</code> .</p></li>
-<li><p>&quot;<strong>Skip directories:</strong>&quot; in filter &quot;Skipped dirs&quot;. <code>|</code> separates multiple directories to skip (prune). Example: <code>/dev|/proc|/sys</code> .</p></li>
-<li><p>&quot;<strong>Name:</strong>&quot; in filter &quot;Name&quot;. <code>|</code> separates multiple strings or WildCard patterns to match in the same file name. For example, to find files with names containing &quot;foo&quot; or &quot;bar&quot;, enter <code>foo|bar</code> and select Contains. <em>NOTE: This does not apply when match mode RegExp is selected.</em></p></li>
-<li><p>&quot;<strong>Path:</strong>&quot; in filter &quot;Path&quot;. Same as for &quot;<strong>Name:</strong>&quot;.</p></li>
-<li><p>&quot;<strong>Skip dirs with name:</strong>&quot; in filter &quot;Skipped dirs&quot;. Same as for &quot;<strong>Name:</strong>&quot;.</p></li>
-<li><p>&quot;<strong>Extension:</strong>&quot; in filter &quot;Type&quot;. <code>|</code> separates multiple extensions. Example: <code>png|svg|gif|jpg|jpeg</code> .</p></li>
-<li><p>&quot;<strong>UID:</strong>&quot; and &quot;<strong>GID:</strong>&quot;, &quot;<strong>MODE:</strong>&quot; in filter &quot;Misc&quot;.</p></li>
+<li><p>"<strong>Directories:</strong>". <code>|</code> separates multiple directories to search. Example: <code>~/.config | ~/.local</code> .</p></li>
+<li><p>"<strong>Skip directories:</strong>" in filter "Skipped dirs". <code>|</code> separates multiple directories to skip (prune). Example: <code>/dev|/proc|/sys</code> .</p></li>
+<li><p>"<strong>Name:</strong>" in filter "Name". <code>|</code> separates multiple strings or WildCard patterns to match in the same file name. For example, to find files with names containing "foo" or "bar", enter <code>foo|bar</code> and select Contains. <em>NOTE: This does not apply when match mode RegExp is selected.</em></p></li>
+<li><p>"<strong>Path:</strong>" in filter "Path". Same as for "<strong>Name:</strong>".</p></li>
+<li><p>"<strong>Skip dirs with name:</strong>" in filter "Skipped dirs". Same as for "<strong>Name:</strong>".</p></li>
+<li><p>"<strong>Extension:</strong>" in filter "Type". <code>|</code> separates multiple extensions. Example: <code>png|svg|gif|jpg|jpeg</code> .</p></li>
+<li><p>"<strong>UID:</strong>" and "<strong>GID:</strong>", "<strong>MODE:</strong>" in filter "Misc".</p></li>
 </ul>
-<p>Leading and trailing whitespace is stripped. Whitespace around <code>|</code> is also stripped when it is a separator. Blank items are ignored. One set of enclosing &quot;&quot; is removed. Thus <code>foo  ||  bar |</code> or <code>&quot;foo&quot; | &quot;bar&quot;</code> are the same as <code>foo|bar</code>.</p>
-<p>To specify leading or trailing whitespace, enclose the string in &quot;&quot;. For example, to find files with names containing foo or bar followed by a space, enter <code>&quot;foo &quot;|&quot;bar &quot;</code> in &quot;Name:&quot; and select Contains.</p>
-<p>Empty strings specified as <code>&quot;&quot;</code> are ignored: <code>&quot;&quot;|foo|&quot;&quot;|</code> is the same as <code>foo</code>. The only exception from this rule is combobox &quot;<strong>Extension:</strong>&quot; where <code>&quot;&quot;</code> may be entered to specify file names without an extension, for example <code>&quot;&quot;|txt|py|sh</code>.</p>
-<p><em><strong>NOTE 1</strong></em>: <code>|</code> is NOT a separator when RegExp match mode is selected. It is instead a part of regular expression. That is, RegExp mode always uses entered string as one regular expression. Leading and trailing whitespace is stripped and one set of enclosing &quot;&quot; is removed, so to find file names ending with a space enter <code>&quot; $&quot;</code> .</p>
-<p><em><strong>NOTE 2</strong></em>: <code>|</code> is NOT a separator in field &quot;<strong>Line:</strong>&quot; in filter &quot;Content&quot;. This is to allow searching files for literal <code>|</code>.</p>
+<p>Leading and trailing whitespace is stripped. Whitespace around <code>|</code> is also stripped when it is a separator. Blank items are ignored. One set of enclosing "" is removed. Thus <code>foo  ||  bar |</code> or <code>"foo" | "bar"</code> are the same as <code>foo|bar</code>.</p>
+<p>To specify leading or trailing whitespace, enclose the string in "". For example, to find files with names containing foo or bar followed by a space, enter <code>"foo "|"bar "</code> in "Name:" and select Contains.</p>
+<p>Empty strings specified as <code>""</code> are ignored: <code>""|foo|""|</code> is the same as <code>foo</code>. The only exception from this rule is combobox "<strong>Extension:</strong>" where <code>""</code> may be entered to specify file names without an extension, for example <code>""|txt|py|sh</code>.</p>
+<p><em><strong>NOTE 1</strong></em>: <code>|</code> is NOT a separator when RegExp match mode is selected. It is instead a part of regular expression. That is, RegExp mode always uses entered string as one regular expression. Leading and trailing whitespace is stripped and one set of enclosing "" is removed, so to find file names ending with a space enter <code>" $"</code> .</p>
+<p><em><strong>NOTE 2</strong></em>: <code>|</code> is NOT a separator in field "<strong>Line:</strong>" in filter "Content". This is to allow searching files for literal <code>|</code>. There is no way to specify multiple search strings in this filter.</p>
 <p>If it is not clear how the input text was processed for searching, take a look at the Log.</p>
 <h3 id="match-modes">Match modes</h3>
-<p>The following explains how string matching modes work. The target string that is being matched depends on the field. In comboboxes &quot;Name:&quot; and &quot;Skip dirs with name:&quot; file names are matched. In comboboxes &quot;Path:&quot; whole file paths are matched. And so on. Examples assume that file names are being matched.</p>
+<p>The following explains how string matching modes work. The target string that is being matched depends on the field. In comboboxes "Name:" and "Skip dirs with name:" file names are matched. In comboboxes "Path:" whole file paths are matched. And so on. Examples assume that file names are being matched.</p>
 <p><strong>Exact</strong> -- target string matches the search string exactly. Examples:</p>
 <pre><code>foo       -- find files with name foo
 foo|bar   -- find files with names foo or bar</code></pre>
@@ -167,15 +175,15 @@ foo|bar       -- find files with names foo or bar
 \b(foo|bar)\b    -- find files with names containing words foo or bar</code></pre>
 <p>As explained above, <code>|</code> here is part of regular expression, not a separator of independent search strings.</p>
 <h3 id="ignorecase">IgnoreCase</h3>
-<p>Checking the box &quot;IgnoreCase&quot; makes string matching case-insensitive.</p>
+<p>Checking the box "IgnoreCase" makes string matching case-insensitive.</p>
 <p>When match mode is RegExp, this is achieved by compiling regex with option re.IGNORECASE. Reference: <a href="https://docs.python.org/3/library/re.html#re.IGNORECASE" class="uri">https://docs.python.org/3/library/re.html#re.IGNORECASE</a> .</p>
 <p>For all other match modes this is achieved by converting strings to lower case with casefold(). Reference: <a href="https://docs.python.org/3/library/stdtypes.html#str.casefold" class="uri">https://docs.python.org/3/library/stdtypes.html#str.casefold</a> .</p>
 <h3 id="file-name-extensions">File name extensions</h3>
-<p>File name extensions may be specified in combobox <strong>Extension:</strong> in filter &quot;Type&quot;. For example: <code>py</code> or <code>txt|htm|html</code>. Do not include the leading dot.</p>
+<p>File name extensions may be specified in combobox <strong>Extension:</strong> in filter "Type". For example: <code>py</code> or <code>txt|htm|html</code>. Do not include the leading dot.</p>
 <p>File name extensions are always matched in case-insensitive manner via casefold().</p>
-<p>To match file names without an extension, that is when extension is an empty string, enter <code>&quot;&quot;</code>. For example: <code>&quot;&quot;|txt|md</code> .</p>
+<p>To match file names without an extension, that is when extension is an empty string, enter <code>""</code>. For example: <code>""|txt|md</code> .</p>
 <p>Extension cannot be the whole file name: dotfiles such as .vim, .emacs, .config have no extension.</p>
-<h3 id="filter-misc">Filter &quot;Misc&quot;</h3>
+<h3 id="filter-misc">Filter "Misc"</h3>
 <p><strong>UID:</strong> and <strong>GID:</strong> are for specifying file owner's User ID and Group ID respectively. Input will be converted into a list of integers. Use <code>|</code> to specify several numbers, e.g, <code>0|1000|1003</code> .</p>
 <p><strong>NLINK&gt;</strong> is for specifying the minimum number of hard links. Input will be converted into integer.</p>
 <p><strong>MODE:</strong> is for specifying the pattern of file mode. File mode is displayed in the column MODE. It is a string of 10 characters in the form:</p>
@@ -183,12 +191,12 @@ foo|bar       -- find files with names foo or bar
 -rw-r--r--</code></pre>
 <p>Reference: <a href="https://wiki.archlinux.org/index.php/File_permissions_and_attributes#Viewing_permissions" class="uri">https://wiki.archlinux.org/index.php/File_permissions_and_attributes#Viewing_permissions</a> .</p>
 <p><strong>MODE:</strong> may be used to find files that have or lack certain permissions. WildCard and RegExp matching works as described above. (Multiple WildCard patterns separated with <code>|</code> may be specified.) For example, RegExp <code>^..*[xst]</code> should find files that are executable by somebody (their owner, or their group, or anybody else).</p>
-<p>Note that <strong>File type:</strong> in filter &quot;Type&quot; is applied before <strong>MODE:</strong> in filter &quot;Misc&quot; and is recommended for selecting directories, regular files, etc.</p>
-<h3 id="filter-content">Filter &quot;Content&quot;</h3>
-<p>When filter &quot;Content&quot; is selected, files are opened for reading in text mode and read and searched for a string or pattern line-by-line. The user is responsible for specifying correct file encoding, how to handle encoding errors, and the format of line endings (options in the second row).</p>
-<p>The content search is always done last, so other filters can be used to pre-select text files by name or extension. Files other than regular files are automatically rejected, there is no need to use &quot;File type:&quot; in filter &quot;Type&quot;.</p>
-<p>The search text in field &quot;Line:&quot; is always interpreted as one string or pattern (<code>|</code> is not a separator). Leading and trailing whitespace is stripped and one set of enclosing &quot;&quot; is removed. Match modes work as described above.</p>
-<p>The content of each file is read and searched line-wise. A line can end with <code>\n</code>, <code>\r</code> or <code>\r\n</code> depending on the file and option &quot;newline&quot;. This means in order to find lines ending with &quot;foo&quot; one should use RegExp <code>foo\s*$</code>. Option &quot;newline=None&quot; enables universal newline mode: <code>\n</code>, <code>\r</code>, <code>\r\n</code> are all treated as newline and translated into <code>\n</code>.</p>
+<p>Note that <strong>File type:</strong> in filter "Type" is applied before <strong>MODE:</strong> in filter "Misc" and is recommended for selecting directories, regular files, etc.</p>
+<h3 id="filter-content">Filter "Content"</h3>
+<p>When filter "Content" is selected, files are opened for reading in text mode and read and searched for a string or pattern line-by-line. The user is responsible for specifying correct file encoding, how to handle encoding errors, and the format of line endings (options in the second row).</p>
+<p>The content search is always done last, so other filters can be used to pre-select text files by name or extension. Files other than regular files are automatically rejected, there is no need to use "File type:" in filter "Type".</p>
+<p>The search text in field "Line:" is always interpreted as one string or pattern (<code>|</code> is not a separator). Leading and trailing whitespace is stripped and one set of enclosing "" is removed. Match modes work as described above.</p>
+<p>The content of each file is read and searched line-wise. A line can end with <code>\n</code>, <code>\r</code> or <code>\r\n</code> depending on the file and option "newline". This means in order to find lines ending with "foo" one should use RegExp <code>foo\s*$</code>. Option "newline=None" enables universal newline mode: <code>\n</code>, <code>\r</code>, <code>\r\n</code> are all treated as newline and translated into <code>\n</code>.</p>
 <p>Options in the second row control how files are opened for reading. They correspond to keyword arguments <code>encoding</code>, <code>errors</code>, <code>newline</code> for Python function <code>open()</code>. Reference: <a href="https://docs.python.org/3/library/functions.html#open" class="uri">https://docs.python.org/3/library/functions.html#open</a> .</p>
 <p>Reference for encodings: <a href="https://docs.python.org/3/library/codecs.html#standard-encodings" class="uri">https://docs.python.org/3/library/codecs.html#standard-encodings</a> .</p>
 <h3 id="handling-or-errors-during-find">Handling or errors during find</h3>
@@ -196,7 +204,7 @@ foo|bar       -- find files with names foo or bar
 <ol style="list-style-type: decimal">
 <li><p><code>**OSError** (during file system traversal)</code>. Exceptions from scandir(). These are almost always exceptions PermissionError when you do not have permission to enter a directory. Running kintterFind as root should make them go away.</p></li>
 <li><p><code>**OSError** (during item processing)</code>. Exceptions while obtaining properties of an item returned by scandir(). These never happen.</p></li>
-<li><p><code>**Exception** (during file content search)</code>. Errors while opening or reading files when filter Content is selected. These are usually exceptions UnicodeDecodeError meaning the file could not be read because option &quot;encoding&quot; does not match the file's encoding or it is a binary file. To skip over encoding errors, set option &quot;errors&quot; to something other than &quot;strict&quot;.</p></li>
+<li><p><code>**Exception** (during file content search)</code>. Errors while opening or reading files when filter Content is selected. These are usually exceptions UnicodeDecodeError meaning the file could not be read because option "encoding" does not match the file's encoding or it is a binary file. To skip over encoding errors, set option "errors" to something other than "strict".</p></li>
 </ol>
 <p>Other errors during find, if caught, will produce status line message <code>ERROR OCCURRED DURING FIND, SEE LOG FOR TRACEBACK</code>. This is likely due to a program bug and should be reported to the author.</p>
 <h3 id="columns">Columns</h3>
@@ -206,23 +214,25 @@ foo|bar       -- find files with names foo or bar
 <p>Columns <strong>Directory</strong>, <strong>Name</strong>, <strong>Ext</strong>: self-explanatory.</p>
 <p>Column <strong>SIZE</strong> shows the exact size in bytes. Column <strong>Size</strong> shows approximate size in human-readable format. When sorting column <strong>Size</strong>, the sorting is actually done by values in column <strong>SIZE</strong>, that is by exact size.</p>
 <p>Column <strong>LinkTo</strong> shows the path to which the symbolic link points. <code>[-]</code>, <code>[d]</code>, <code>[l]</code>, etc. indicate the type of the target. <code>[!]</code> means the target path does not exist. If the target is another symbolic link, click Properties to see the final target and all intermediate links.</p>
-<p>Other columns with uppercase names (<strong>MTIME</strong>, <strong>UID</strong>, etc.) correspond to the attributes of Python object <code>os.stat_result</code> (st_mtime, st_uid, etc.). According to Python docs, these attributes &quot;correspond roughly to the members of the <code>stat</code> structure.&quot; Reference: <a href="https://docs.python.org/3/library/os.html#os.stat_result" class="uri">https://docs.python.org/3/library/os.html#os.stat_result</a> .</p>
-<p>Timestamps in columns <strong>MTIME</strong>/<strong>CTIME</strong>/<strong>ATIME</strong> do not show fractional seconds, if there are any. This should be kept in mind when finding files by timestamp. The exact time as reported by Python and used by filter &quot;Time&quot; can be seen in file Properties.</p>
-<p>Command Properties in the right-click menu for one file prints <em>current</em> information about the file. This information may differ from what is displayed in columns if the file at this path has changed since the last search.</p>
+<p>Other columns with uppercase names (<strong>MTIME</strong>, <strong>UID</strong>, etc.) correspond to the attributes of Python object <code>os.stat_result</code> (st_mtime, st_uid, etc.). According to Python docs, these attributes "correspond roughly to the members of the <code>stat</code> structure." Reference: <a href="https://docs.python.org/3/library/os.html#os.stat_result" class="uri">https://docs.python.org/3/library/os.html#os.stat_result</a> .</p>
+<p>Timestamps in columns <strong>MTIME</strong>/<strong>CTIME</strong>/<strong>ATIME</strong> do not show fractional seconds, if there are any. This should be kept in mind when finding files by timestamp. The exact time as reported by Python and used by filter "Time" can be seen in file Properties.</p>
+<p>Command Properties in the right-click menu prints the <em>current</em> information about the file. This information may differ from what is displayed in columns if the file at this path has changed since the last search.</p>
 <p>File size units K, M, G, T, P are kibi-, mebi-, etc. (power of 1024 bytes). File size units k, m, g, t, p are kilo-, mega-, etc. (power of 1000 bytes).</p>
 <h3 id="file-operations">File operations</h3>
 <p>Commands for file operations are in the menu Edit. There is currently only Delete: it deletes selected files PERMANENTLY. <strong>Delete cannot be undone!</strong> For this reason command Delete is disabled by default. To enable Delete, set config file option <code>DELETE_IS_ENABLED</code> to True.</p>
 <p>The universal approach to operate on found files is to copy their Path/Directory/Name to the clipboard, switch to terminal, and then use command line tools. For example, to move files to trash use <a href="https://github.com/andreafrancia/trash-cli">trash-cli</a> or similar tool.</p>
-<p>Mouse right-click menu provides various ways to copy Path/Directory/Name of selected files to the clipboard:</p>
-<p><em>right-click -&gt; Copy Path/Directory/Name</em>: for the current item under the cursor.</p>
-<p><em>right-click -&gt; Copy All -&gt; Copy Paths/Directories/Names</em>: for all selected items. Values are quoted and joined by space into one line, ready for pasting into a terminal.</p>
-<p><em>right-click -&gt; Copy All -&gt; Copy Linewise -&gt; Copy Paths/Directories/Names</em>: for all selected items. Each value is put on a separate line. This can be pasted into a file for further processing or to be used as an input.</p>
-<p>NOTE: commands Copy Path/Directory/Name assume that Path/Directory/Name has no newlines.</p>
+<p>Mouse right-click popup menu provides various ways to copy Path/Directory/Name of selected files to the clipboard:</p>
+<ul>
+<li><p><em>Copy Path/Directory/Name</em>: for the current item under the cursor.</p></li>
+<li><p><em>Copy All -&gt; Copy Paths/Directories/Names</em>: for all selected items. Values are quoted and joined by space into one line, ready for pasting into a terminal.</p></li>
+<li><p><em>Copy All -&gt; Copy Linewise -&gt; Copy Paths/Directories/Names</em>: for all selected items. Each value is put on a separate line. This can be pasted into a file for further processing. <em>Copy Linewise</em> commands will display an error message and abort if some Path/Directory/Name contains character <code>\n</code>.</p></li>
+</ul>
 <h2 id="bugs">Bugs</h2>
-<p>The find process cannot be cancelled and the status line is not updated while searching inside a file (filter &quot;Content&quot; is active). If you get stuck while searching with a very slow regex in a very large file, you will have to terminate the program from task manager.</p>
-<p>The find process cannot be cancelled while results are being displayed (status line says &quot;displaying...&quot;). This can be a problem when there are many thousands results: displaying them all can take a long time and consume a lot of memory. By default, the find process will ask for confirmation if there are &gt;50000 results before displaying them. This number is determined by option MAX_RESULTS.</p>
-<p>When OS is Windows, paths of directories may be entered in &quot;Directories:&quot; and &quot;Skip directories:&quot; with <code>\</code> or <code>/</code> as path separator. However, path separators are normalized to <code>\</code> during the search. Thus <code>\</code> must be used in filter &quot;Path&quot;.</p>
-<p>When OS is Windows, the following columns seem to always have value 0: UID, GID, NLINK, INO.</p>
+<p>The find process cannot be cancelled and the status line is not updated while searching file's content (filter "Content" is active). If you get stuck while searching with a very slow regex in a very large file, you will have to terminate the program.</p>
+<p>The find process cannot be cancelled while results are being displayed (status line says "displaying..."). This can be a problem when there are many thousands results: displaying them all can take a long time and consume a lot of memory. By default, the find process will ask for confirmation if there are &gt;50000 results before displaying them. This number is determined by option MAX_RESULTS.</p>
+<p>When OS is Windows, directories may be specified in "Directories:" and "Skip directories:" with <code>\</code> or <code>/</code> as path separator. However, path separators are normalized to <code>\</code> during the search. Thus <code>\</code> must be used in filter "Path".</p>
+<p>When OS is Windows, the following columns always have zeros in them: UID, GID, NLINK, INO, DEV.</p>
+<p>When OS is Windows, checkbutton <code>xdev</code> does not work right and should be left unchecked.</p>
 <p align="center">
 --- The End ---
 </p>

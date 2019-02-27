@@ -1,5 +1,12 @@
 kintterToys version history
 
+version 2019-02:
+ + New: support for Results Theme config files.
+ + New: "xdev" search option.
+ + Linewise copy now shows error message and aborts if file name contains newline.
+ + All comboboxes now save the last 10 unique search entries in the dropdown
+   list. The default list, if any, is kept unchanged at the bottom.
+
 version 2018-06:
  + Partial results are now displayed after find is cancelled.
  + Combobox "Extension:": extensions should now be typed without the leading dot.

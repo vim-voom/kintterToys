@@ -1,6 +1,4 @@
-# -*- coding: utf-8 -*-
-
-import sys, os, re, fnmatch, time
+import sys, os, re, time
 import threading
 import stat # _stat
 import subprocess, shlex
@@ -31,9 +29,11 @@ if not (getattr(os, 'major', None) and getattr(os, 'minor', None)):
     os.major = os.minor = lambda s: 'n/a'
 
 # local imports
-from . import PROGRAMDIR
+from .constants import *
 from . import kintterFind_options as OPT
+from . import treeview_themes
 from . import config_file_parser
+from . import fltfuncs
 
 # frequently used
 _sep = os.sep
@@ -45,30 +45,14 @@ _strftime = time.strftime
 _localtime = time.localtime
 _filemode = stat.filemode
 
+# Abs path of outside dir, that is dir of "start_kintterFind.py".
+PROGRAMDIR = _path.dirname(_path.dirname(_path.abspath(__file__)))
+
+# Window title.
 if getattr(os, 'geteuid', None) and os.geteuid() == 0:
     TITLE = '[ROOT] kintterFind'
 else:
     TITLE = 'kintterFind'
-
-FT_DESCRIP = {'-': 'regular file', 'd': 'directory', 'l': 'symbolic link',
-              'c': 'character device', 'b': 'block device', 'p': 'named pipe', 's': 'socket file',
-              'D': 'door', 'P': 'event port', 'w': 'whiteout',
-              '?': 'unknown', '!': 'does not exist', }
-
-LHR = '=' * 70 # Log horizontal ruler
-LD1, LD2 = '--- ', ' ---' # Log headline decorators
-
-TIME_FORMAT = '%Y-%m-%d %H:%M:%S' # "YYYY-MM-DD HH:MM:SS", must be sortable
-
-# sort signs appended to headline text: Low-to-High, High-to-Low
-#SL2H, SH2L = ' <', ' >'
-SL2H, SH2L = ' ▲', ' ▼'
-
-# on/off signs prepended to text on tabs in notebook Filters
-#TAB_ON, TAB_OFF = '* ', '  '
-#TAB_ON, TAB_OFF = '■ ', '□ ' # too big
-TAB_ON, TAB_OFF = '◼ ', '◻ '
-
 
 ######################################################################
 
@@ -93,17 +77,18 @@ class Application:
         # column id of last sorted column (has SL2H or SH2L at the end of heading)
         self._sortedCID = ''
 
-        self.tags = {'d': 'd', 'l': 'l'}
-
         self.startupLog = startupLog
         startupLog.append('Starting...')
         startupLog.append('program directory:\n    %s' %(quoted(PROGRAMDIR)))
 
         if not configDir:
-            configDir = OPT.CONFIGDIR
+            configDir = CONFIGDIR
         configDir = full_path(configDir, basedir=PROGRAMDIR)
-        x = '' if _path.isdir(configDir) else ' (NOT FOUND)'
+        self.configDir = configDir
+        if _path.isdir(configDir): x = ''
+        else: x = ' (NOT FOUND)'
         startupLog.append('config directory%s:\n    %s' %(x, quoted(configDir)))
+
         # parse config file, replace options in OPT with user options
         self.do_configfile(configDir, 'kintterFind.config.py')
 
@@ -119,34 +104,49 @@ class Application:
         # configure tkinter fonts
         self.configure_tkFonts()
 
-        # configure ttk style and themes
+        # configure ttk style
         self.ttkStyle = ttk.Style()
-        self.ttkThemes = list(self.ttkStyle.theme_names())
-        self.ttkThemes.sort()
-        #print(self.ttkThemes)
-        # apply user-preferred theme
-        th0 = self.ttkStyle.theme_use()
-        for th in OPT.TTK_THEMES:
-            if th == th0:
-                break
-            elif th in self.ttkThemes:
-                self.c_apply_ttkTheme(th)
-                break
+        ttkThemes = list(self.ttkStyle.theme_names())
+        ttkThemes.sort()
+        #print(ttkThemes)
+        # apply user-preferred ttk theme
+        th = OPT.TTK_THEME
+        if th != self.ttkStyle.theme_use() and th in ttkThemes:
+            try:
+                self.ttkStyle.theme_use(th)
+            except tk.TclError as e:
+                startupLog.append('%s' %e)
         self.configure_ttkStyle()
 
         # invalid value cannot be caught here, it will cause error later
         for p, v in OPT.OPTION_ADD:
             self.root.option_add(p, v)
 
-        # create all widgets
+        ## create all widgets
         self.init_widgets(startupDir)
         self.ntbkFilters.select(1)
 
-        # clickable ttk widgets that will be disabled during FIND
-        # trvwResults is not included because disabling it does not work
+        ## handle custom Treeview themes
+        trvwThemes = treeview_themes.get_themes(_path.join(PROGRAMDIR, 'config', 'results_themes'), _path.join(configDir, 'results_themes'))
+        self.trvwThemeName = OPT.RESULTS_THEME or 'none'
+        self.trvwTheme, errs = treeview_themes.parse_theme(self.trvwThemeName)
+        # save original ttk theme before modifying it with Treeview theme
+        self.ttkThemesSaved = {}
+        # configure Treeview style
+        errs_ = self.configure_trvwStyle()
+        errs.extend(errs_)
+        # configure Treeview tags (must be done after creating Treeview widget)
+        errs_ = self.configure_trvwTags()
+        errs.extend(errs_)
+        if errs:
+            self.startupLog.append('ERRORS WHILE APPLYING RESULTS THEME "%s":' %self.trvwThemeName)
+            self.startupLog.extend(errs)
+
+        ## clickable ttk widgets that will be disabled during FIND
         # ttk widgets that are always visible
         self.clickablesA = (self.ntbkResults, self.ntbkFilters,
-                            self.cmbbDir, self.btnDirChooser, self.ckbRecurse)
+                            #self.trvwResults, # disabling does not work, not needed
+                            self.cmbbDir, self.btnDirChooser, self.ckbRecurse, self.ckbXdev)
         # ttk widgets in tabs of notebook Filters
         self.clickablesB = {0: (self.cmbbSkipDir, self.btnSkipDirChooser,
                                 self.cmbbSkipName, self.opmSkipNameMode, self.ckbSkipNameIC),
@@ -160,12 +160,12 @@ class Application:
                             5: (self.entTime1, self.opmTime, self.entTime2, self.btnTimeToClipboard),
                             6: (self.opmUID, self.entUID, self.opmGID, self.entGID,
                                 self.opmMODE, self.cmbbMODE, self.opmMODEMode, self.entNLINK),
-                            7: (self.entCont, self.opmContMode, self.ckbContIC,
+                            7: (self.cmbbCont, self.opmContMode, self.ckbContIC,
                                 self.cmbbContEnc, self.opmContErrors, self.opmContNewline), }
 
         # create menu bar
         # must be done after creating widgets: need Treeview columns
-        self.init_menubar()
+        self.init_menubar(ttkThemes, trvwThemes)
 
         # popup menu for text widget Log
         self.pmenuLog = self.make_pmenuLog()
@@ -248,17 +248,6 @@ class Application:
         if not options:
             return
 
-        # verify color options for Treeview style: there is no error when
-        # configuring style, but resultant gui may be broken
-        f_ = tk.Frame(self.root) # dummy widget to check if color is valid
-        for o in ('RESULTS_FG', 'RESULTS_BG', 'RESULTS_FIELD_BG'):
-            if not options.get(o): continue
-            try:
-                f_.configure(background=options[o])
-            except tk.TclError as e:
-                log.append('**tkinter.TclError** while verifying color option %s:\n    %s' %(o, e))
-                del options[o]
-
         # replace default option values with user values
         # copy.deepcopy() ?
         for o in options:
@@ -266,6 +255,9 @@ class Application:
 
 
     def configure_tkFonts(self):
+        """Configure Tk fonts (not ttk) according to config options. This is
+        done once during startup."""
+
         fontTreview = tkFont.Font(family=OPT.FONT_RESULTS[0], size=OPT.FONT_RESULTS[1])
         # width of one letter W (usually the widest letter if proportional font)
         self.width_char = int(fontTreview.measure('W'*10) / 10)
@@ -303,10 +295,12 @@ class Application:
 
 
     def configure_ttkStyle(self):
+        """ Configure ttk style globally. Properties changed here are changed
+        once for each ttk theme and never changed back."""
         # NOTE: When configuring ttk style, there is no error if font or color
         # is invalid, but resultant UI will likely be broken.
         # Thus, invalid font and color options must be thrown out while
-        # processing config file.
+        # processing config file or checked before use.
 
         self.ttkStyle.configure('.', font=OPT.FONT_LABEL)
         self.ttkStyle.configure('Treeview', font=OPT.FONT_RESULTS)
@@ -316,19 +310,92 @@ class Application:
         #self.ttkStyle.configure('TCombobox', font=OPT.FONT_TEXT)
         #self.ttkStyle.configure('TEntry', font=OPT.FONT_TEXT)
 
-        # Treeview colors
-        d = {}
-        for (i, o) in (('foreground', OPT.RESULTS_FG),
-                       ('background', OPT.RESULTS_BG),
-                       ('fieldbackground', OPT.RESULTS_FIELD_BG)):
-            if o:
-                d[i] = o
-        if d:
-            self.ttkStyle.configure('Treeview', **d)
-
         # Tk default is 2, ttk themes other than classic use 1
         self.ttkStyle.configure('TCombobox', insertwidth=2)
         self.ttkStyle.configure('TEntry', insertwidth=2)
+
+        #self.ttkStyle.configure('TCombobox', insertcolor='red')
+        #self.ttkStyle.configure('TEntry', insertcolor='red')
+
+
+    def configure_trvwStyle(self):
+        """Configure treeview ttk style according to treeview theme."""
+        trvwTheme = self.trvwTheme
+        ttkStyle = self.ttkStyle
+        th = ttkStyle.theme_use()
+        ttkThemesSaved = self.ttkThemesSaved
+
+        # FIXME original 'fieldbackground' is always ''. Restoring it as ''
+        # seems to show background instead of fieldbackground.
+
+        # save properties of the current ttk theme before modifying it for the first time
+        if not th in ttkThemesSaved:
+            d = {}
+            for i in ('fieldbackground', 'background', 'foreground'):
+                d[i] = ttkStyle.lookup('Treeview', i)
+            # selected row bg and fg
+            for i in ('background', 'foreground'):
+                d['%s_map' %i] = ttkStyle.map('Treeview', i)
+            ttkThemesSaved[th] = d
+
+        # apply Treeview theme
+        colors = [trvwTheme[k] for k in ('BG_FIELD', 'BG', 'FG', 'BG_SEL', 'FG_SEL')]
+        colors, errs = tk_check_colors(self.root, colors)
+
+        d = {}
+        for (i, o) in (('fieldbackground', colors[0]),
+                       ('background', colors[1]),
+                       ('foreground', colors[2])):
+            if o: d[i] = o
+            else: d[i] = ttkThemesSaved[th][i]
+        ttkStyle.configure('Treeview', **d)
+
+        d = {'fieldbackground':[]}
+        for (i, o) in (('background', colors[3]),
+                       ('foreground', colors[4])):
+            if o:
+                d[i] = [('selected', o)]
+            else:
+                for j in ttkThemesSaved[th]['%s_map' %i]:
+                    if 'selected' in j:
+                        d[i] = [('selected', j[-1])]
+        ttkStyle.map('Treeview', **d)
+        
+        return errs 
+
+
+    def configure_trvwTags(self):
+        """Configure treeview tags (colors and font styles) according to treeview theme."""
+        errs = []
+        _trvw = self.trvwResults
+        th = self.trvwTheme
+
+        # configure tag colors (not verified)
+        # do stripe last so it has the lowest priority
+        for (t, fg, bg) in (('d', th['DIR_FG'],   th['DIR_BG']),
+                            ('l', th['LINK_FG'],  th['LINK_BG']),
+                            ('o', th['OTHER_FG'], th['OTHER_BG']),
+                            ('s', '',             th['STRIPE_BG'])):
+            d = {}
+            if fg: d['foreground'] = fg
+            if bg: d['background'] = bg
+            if not d: continue
+            try:
+                _trvw.tag_configure(t, **d)
+            except tk.TclError as e:
+                errs.append('**tkinter.TclError** while configuring Treeview tag color:\n    %s' %e)
+
+        # configure font styles (verified)
+        for (t, stl) in (('d', th['DIR_FONT_STYLE']),
+                         ('l', th['LINK_FONT_STYLE']),
+                         ('o', th['OTHER_FONT_STYLE'])):
+            if not stl: continue
+            try:
+                _trvw.tag_configure(t, font=list(OPT.FONT_RESULTS[:2]) + [stl])
+            except tk.TclError as e:
+                errs.append('**tkinter.TclError** while configuring Treeview tag font style:\n    %s' %e)
+
+        return errs
 
 
     def init_widgets(self, startupDir):
@@ -356,7 +423,7 @@ class Application:
         # first columns, always present in "columns" and have values
         self.trvwColumnsA = ('FileType', 'Directory', 'Name', 'Ext', 'SIZE', 'Size')
         # other columns, optional, may be added to and removed from "columns"
-        self.trvwColumnsB = ('MTIME', 'CTIME', 'ATIME', 'LinkTo', 'MODE', 'UID', 'GID', 'NLINK', 'INO')
+        self.trvwColumnsB = ('MTIME', 'CTIME', 'ATIME', 'LinkTo', 'MODE', 'UID', 'GID', 'NLINK', 'INO', 'DEV')
         # all available columns
         self.trvwColumnsAB = self.trvwColumnsA + self.trvwColumnsB
 
@@ -382,31 +449,6 @@ class Application:
         # configure Treeview headings and columns
         self.init_trvw_kw()
         self.trvw_configure_cols(trvwColumns)
-
-        # configure Treeview tags (do stripe last so it has the lowest priority)
-        for (t, fg, bg) in (('d', OPT.RESULTS_DIR_FG,   OPT.RESULTS_DIR_BG),
-                            ('l', OPT.RESULTS_LINK_FG,  OPT.RESULTS_LINK_BG),
-                            ('o', OPT.RESULTS_OTHER_FG, OPT.RESULTS_OTHER_BG),
-                            ('s', '',                   OPT.RESULTS_STRIPE_BG)):
-            d = {}
-            if fg: d['foreground'] = fg
-            if bg: d['background'] = bg
-            if not d: continue
-            try:
-                _trvw.tag_configure(t, **d)
-            except tk.TclError as e:
-                self.startupLog.append('**tkinter.TclError** while configuring Treeview tag (bad color option):\n    %s' %e)
-
-        # font style of Treeview tags (config file options have been verified)
-        for (t, stl) in (('d', OPT.RESULTS_DIR_STYLE),
-                         ('l', OPT.RESULTS_LINK_STYLE),
-                         ('o', OPT.RESULTS_OTHER_STYLE)):
-            if not stl: continue
-            try:
-                _trvw.tag_configure(t, font=list(OPT.FONT_RESULTS[:2]) + [stl])
-            except tk.TclError as e:
-                self.startupLog.append('**tkinter.TclError** while configuring Treeview tag (bad font style option):\n    %s' %e)
-
 
         # Scrollbars for Treeview
         scbyTreeview = ttk.Scrollbar(master, orient=tk.VERTICAL)
@@ -451,47 +493,56 @@ class Application:
         if not OPT.PANEL_IS_FIXED: # make bottom panel stretchable
             frmPanel.columnconfigure(0, weight=1)
 
-        #--- frmPanel, row 0, col 0 ----------------------------------
+        #--- frmPanelRow0 --------------------------------------------
+        frmPanelRow0 = ttk.Frame(master)
+        frmPanelRow0.columnconfigure(1, weight=1)
+        frmPanelRow0.grid(in_=frmPanel, row=0, column=0, sticky=tk.NSEW, pady=4)
 
-        ### Combobox 'Directories'
-        frm = ttk.Frame(master)
-        frm.columnconfigure(1, weight=1)
-        frm.grid(in_=frmPanel, row=0, column=0, sticky=tk.NSEW, pady=4)
+        ### Combobox 'Directories' and checkboxes after it
 
         # label
         lblDir = ttk.Label(master, text='Directories:')
-        lblDir.grid(in_=frm, row=0, column=0, sticky=tk.E)
+        lblDir.grid(in_=frmPanelRow0, row=0, column=0, sticky=tk.E)
 
-        # combobox
+        # Combobox
         self.cmbbDir = ttk.Combobox(master, width=OPT.WIDTH_DIRECTORIES,
                                     values=OPT.DROPDOWN_DIRECTORIES)
         if startupDir:
             self.cmbbDir.insert(0, startupDir)
         else:
             tk_cmbb_insert(self.cmbbDir, OPT.DROPDOWN_DIRECTORIES)
-        self.cmbbDir.grid(in_=frm, row=0, column=1, sticky=tk.EW)
+        self.cmbbDir.grid(in_=frmPanelRow0, row=0, column=1, sticky=tk.EW)
 
         # Button for directory chooser
         self.btnDirChooser = ttk.Button(master, width=3, text='...',
                                         command=lambda: self.c_dir_chooser(self.cmbbDir))
-        self.btnDirChooser.grid(in_=frm, row=0, column=2, sticky=tk.W, padx=4)
+        self.btnDirChooser.grid(in_=frmPanelRow0, row=0, column=2, sticky=tk.W, padx=4)
 
-        # Checkbutton 'Recurse'
+        # Checkbutton 'recurse'
         self.var_ckbRecurse = tk.IntVar()
-        self.ckbRecurse = ttk.Checkbutton(master, text='Recurse', variable=self.var_ckbRecurse)
+        self.ckbRecurse = ttk.Checkbutton(master, text='recurse', variable=self.var_ckbRecurse)
         self.var_ckbRecurse.set(1)
-        self.ckbRecurse.grid(in_=frm, row=0, column=3, sticky=tk.W)
+        self.ckbRecurse.grid(in_=frmPanelRow0, row=0, column=3, sticky=tk.W, padx=2)
 
-        #--- frmPanel, row 0, col 1 ----------------------------------
-        #frm = ttk.Frame(master)
-        #frm.grid(in_=frmPanel, row=0, column=1, sticky=tk.NSEW, pady=4, padx=4)
+        # Checkbutton 'xdev'
+        self.var_ckbXdev = tk.IntVar()
+        self.ckbXdev = ttk.Checkbutton(master, text='xdev', variable=self.var_ckbXdev)
+        self.var_ckbXdev.set(0)
+        self.ckbXdev.grid(in_=frmPanelRow0, row=0, column=4, sticky=tk.W, padx=2)
 
-        #--- frmPanel, row 1, col 0 ----------------------------------
+
+        #--- frmPanelRow1 --------------------------------------------
+        frmPanelRow1 = ttk.Frame(master)
+        #frmPanelRow1.grid(in_=frmPanel, row=1, column=0, sticky=tk.NSEW, pady=4, padx=4)
+        frmPanelRow1.columnconfigure(0, weight=1)
+        frmPanelRow1.grid(in_=frmPanel, row=1, column=0, sticky=tk.NSEW)
+
+        #--- frmPanelRow1, col 0 -------------------------------------
 
         ### Notebook 'Filters:'
         self.ntbkFilters = ttk.Notebook(master)
         #self.ntbkFilters.columnconfigure(0, weight=1) # not needed
-        self.ntbkFilters.grid(in_=frmPanel, row=1, column=0, sticky=tk.N + tk.EW)
+        self.ntbkFilters.grid(in_=frmPanelRow1, row=0, column=0, sticky=tk.N + tk.EW)
 
         opm_match_modes = ['off', 'Exact', 'Contains', 'StartsWith', 'EndsWith', 'WildCard', 'RegExp']
 
@@ -814,9 +865,10 @@ class Application:
         # Label
         lblContLine = ttk.Label(master, text='Line:')
         lblContLine.grid(in_=frm, row=0, column=0, sticky=tk.E)
-        # Entry
-        self.entCont = ttk.Entry(master)
-        self.entCont.grid(in_=frm, row=0, column=1, sticky=tk.EW)
+        # Combobox for line content
+        self.cmbbCont = ttk.Combobox(master, values=OPT.DROPDOWN_LINE)
+        tk_cmbb_insert(self.cmbbCont, OPT.DROPDOWN_LINE)
+        self.cmbbCont.grid(in_=frm, row=0, column=1, sticky=tk.EW)
         # OptionMenu for match modes
         self.var_opmContMode = tk.StringVar()
         self.opmContMode = tk_make_optionmenu(master, self.var_opmContMode,
@@ -867,14 +919,14 @@ class Application:
         self.opmContNewline.grid(in_=frm2, row=0, column=5, sticky=tk.W)
 
 
-        #--- frmPanel, row 1, col 1 ----------------------------------
+        #--- frmPanelRow1, col 1 -------------------------------------
         frm = ttk.Frame(master)
-        frm.grid(in_=frmPanel, row=1, column=1, sticky=tk.NSEW)
+        frm.grid(in_=frmPanelRow1, row=0, column=1, sticky=tk.NSEW)
         ### Buttons 'FIND', 'CANCEL'
         self.btnFIND = ttk.Button(master, text='FIND', width=7, command=self.c_btnFIND)
-        self.btnFIND.grid(in_=frm, row=0, column=0, sticky=tk.W, padx=12)
+        self.btnFIND.pack(in_=frm, anchor=tk.E, padx=12, pady=8)
         self.btnCANCEL = ttk.Button(master, text='CANCEL', width=7, command=self.c_btnCANCEL, state=tk.DISABLED)
-        self.btnCANCEL.grid(in_=frm, row=1, column=0, sticky=tk.W, padx=12, pady=8)
+        self.btnCANCEL.pack(in_=frm, anchor=tk.E, padx=12)
 
 
         #=== master, row 2: Statusbar + Sizegrip =====================
@@ -927,7 +979,7 @@ class Application:
         columnKW['MODE']['anchor'] = tk.E
 
         w = 9*wi
-        for c in ('UID', 'GID', 'NLINK', 'INO'):
+        for c in ('UID', 'GID', 'NLINK', 'INO', 'DEV'):
             columnKW[c]['width'] = w
             headingKW[c]['anchor'] = tk.E
             columnKW[c]['anchor'] = tk.E
@@ -940,7 +992,7 @@ class Application:
             self.trvwResults.column(c, **self.trvwColumnKW[c])
 
 
-    def init_menubar(self):
+    def init_menubar(self, ttkThemes, trvwThemes):
         mnBar = tk.Menu(self.root, tearoff=0)
         self.root.config(menu=mnBar)
 
@@ -962,26 +1014,37 @@ class Application:
         mnToggleCols = tk.Menu(mnBar, tearoff=1)
         mnView.add_cascade(label='Columns', underline=0, menu=mnToggleCols)
         # checkbutton menu for each Treeview column to hide/show
-        self.vars_ckbToggleCol = {} # to save vars, otherwise checkbuttons don't init properly
+        self.vars_ckbToggleCol = [] # to save vars, otherwise checkbuttons don't init properly
         dispCols = self.trvwResults['displaycolumns']
         for cn in self.trvwColumnsAB:
             var_ckbToggleCol = tk.IntVar()
-            self.vars_ckbToggleCol[cn] = var_ckbToggleCol
+            self.vars_ckbToggleCol.append(var_ckbToggleCol)
             mnToggleCols.add_checkbutton(label=cn,
                     command=lambda cn_=cn: self.c_trvw_toggle_col(cn_),
                     variable=var_ckbToggleCol)
             var_ckbToggleCol.set(int((cn in dispCols)))
 
         mnTheme = tk.Menu(mnBar, tearoff=1)
-        mnView.add_cascade(label='Ttk Theme', underline=0, menu=mnTheme)
-        # radiobutton menu for each available ttk Themes
+        mnView.add_cascade(label='Ttk Theme', underline=4, menu=mnTheme)
+        # radiobutton menu for each available ttk Theme
         self.var_rdbTtkTheme = tk.StringVar()
-        for th in self.ttkThemes:
+        for th in ttkThemes:
             mnTheme.add_radiobutton(label=th,
                     command=lambda th_=th: self.c_apply_ttkTheme(th_),
                     variable=self.var_rdbTtkTheme,
                     value=th)
         self.var_rdbTtkTheme.set(self.ttkStyle.theme_use())
+
+        mnTrvwTheme = tk.Menu(mnBar, tearoff=1)
+        mnView.add_cascade(label='Results Theme', underline=8, menu=mnTrvwTheme)
+        # radiobutton menu for each available Treeview theme
+        self.var_rdbTrvwTheme = tk.StringVar()
+        for st in trvwThemes:
+            mnTrvwTheme.add_radiobutton(label=st,
+                    command=lambda st_=st: self.c_apply_trvwTheme(st_),
+                    variable=self.var_rdbTrvwTheme,
+                    value=st)
+        self.var_rdbTrvwTheme.set(self.trvwThemeName)
 
         mnView.add_command(label='Clear Results', underline=1, command=self.c_trvw_clear)
 
@@ -994,7 +1057,7 @@ class Application:
         self.mnEdit = mnEdit # need it for postcommand
 
         # list of menus that need to be disabled during FIND
-        self.visibleMenus = (mnBar, mnToggleCols, mnTheme, )
+        self.visibleMenus = (mnBar, mnToggleCols, mnTheme, mnTrvwTheme)
 
 
     def c_mnEdit(self):
@@ -1160,9 +1223,43 @@ class Application:
         if self._isBusy: return
         try:
             self.ttkStyle.theme_use(th)
-            self.configure_ttkStyle()
         except tk.TclError as e:
-            msgbox_error('%s' %e)
+            tk_msg_err('%s' %e)
+        errs = []
+        self.configure_ttkStyle()
+        errs = self.configure_trvwStyle()
+        if errs:
+            tk_msg_err('ERRORS WHILE APPLYING RESULTS THEME "%s".\nSee Log for details.' %self.trvwThemeName)
+            self.log_put(LHR)
+            self.log_put('ERRORS WHILE APPLYING RESULTS THEME "%s":' %self.trvwThemeName)
+            self.log_put('\n'.join(errs))
+            self.log_show()
+
+
+    def c_apply_trvwTheme(self, th):
+        """Change treeview theme to th."""
+        if self._isBusy: return
+        self.trvwThemeName = th
+        errs = []
+
+        self.trvwTheme, errs_ = treeview_themes.parse_theme(th)
+        errs.extend(errs_)
+
+        errs_ = self.configure_trvwStyle()
+        errs.extend(errs_)
+
+        # setting tag option to '' seems to clear that option
+        for t in ('d', 'l', 'o', 's'):
+            self.trvwResults.tag_configure(t, foreground='', background='', font='')
+        errs_ = self.configure_trvwTags()
+        errs.extend(errs_)
+
+        if errs:
+            tk_msg_err('ERRORS WHILE APPLYING RESULTS THEME "%s".\nSee Log for details.' %th)
+            self.log_put(LHR)
+            self.log_put('ERRORS WHILE APPLYING RESULTS THEME "%s":' %th)
+            self.log_put('\n'.join(errs))
+            self.log_show()
 
 
     def c_rslts_focusin(self, event):
@@ -1306,6 +1403,7 @@ class Application:
         _trvw = self.trvwResults
         _trvw.delete(*_trvw.get_children())
         self.RSLTS = []
+        self.lblStatus['text'] = 'Ready...'
 
 
     def c_trvw_sort(self, how, c=None):
@@ -1433,6 +1531,11 @@ class Application:
 
         # copy line-wise: put each value on a separate line
         if linewise:
+            for v in vals:
+                if '\n' in v:
+                    tk_msg_err('Cannot copy linewise.\nNewline in file name:\n%s' %repr(v))
+                    tk_clipboard_put(self.root, '')
+                    return
             txt = '\n'.join(vals)
         # copy as one line: put each value in quotes and join into one line
         else:
@@ -1572,7 +1675,7 @@ class Application:
             args1 = shlex.split(cmd) # can raise exception (unmatched ' or ")
         except Exception as e:
             emsg = e_info(e)
-            msgbox_error('**Exception** (see Log for details):%s' %emsg)
+            tk_msg_err('**Exception** (see Log for details):%s' %emsg)
             self.log_put(LHR)
             self.log_put('**Exception**:%s' %emsg)
             self.log_put('caused by: shlex.split(cmd)\ncmd = %s' %repr(cmd), True)
@@ -1584,7 +1687,7 @@ class Application:
             pid = subprocess.Popen(args2).pid
         except Exception as e:
             emsg = e_info(e)
-            msgbox_error('**Exception** (see Log for details):%s' %emsg)
+            tk_msg_err('**Exception** (see Log for details):%s' %emsg)
             self.log_put(LHR)
             self.log_put('**Exception**:%s' %emsg)
             self.log_put('caused by: subprocess.Popen(args2)')
@@ -1678,7 +1781,7 @@ class Application:
         # verify itxs
         ok, msg = self.verify_itxs(selectedItems, itxs, cnxFT, cnxD, cnxN)
         if not ok:
-            msgbox_error('DELETE ABORTED.\nINTERNAL ERROR.\nSee Log for details.')
+            tk_msg_err('DELETE ABORTED.\nINTERNAL ERROR.\nSee Log for details.')
             self.log_put(LHR)
             self.log_put('****************** DELETE ABORTED. INTERNAL ERROR. *******************')
             self.log_put('verify_itxs() failed with the following message:\n%s' %msg, True)
@@ -1784,18 +1887,21 @@ class Application:
         if self._isBusy: return
 
         tT0 = _time() # start of total run time
-        logLines = [LHR]
+        logFind = [LHR]
 
         ### directories to search ------------------------------------
         var_ckbRecurse = self.var_ckbRecurse.get()
+        var_ckbXdev = self.var_ckbXdev.get()
+
         inputDirs_v1 = inpstr_to_items(self.cmbbDir.get(), sep='|')
         if not inputDirs_v1:
-            msgbox_inperror('No Directories to search')
+            tk_msg_errinp('No Directories to search')
             return
         inputDirs_v1 = process_input_dirs(inputDirs_v1, mustexist=True, nosubdirs=var_ckbRecurse)
         if not inputDirs_v1:
             return
-        logLines.append('Directories: %s\n    Recurse=%s' %(inputDirs_v1, var_ckbRecurse))
+        logFind.append('Directories: %s\n    recurse=%s, xdev=%s' %(inputDirs_v1, var_ckbRecurse, var_ckbXdev))
+        tk_cmbb_save(self.cmbbDir, OPT.DROPDOWN_DIRECTORIES)
 
         ### filter "Skipped dirs" ------------------------------------
         # skip directories and all files under them
@@ -1807,12 +1913,14 @@ class Application:
             ok, pttnsSkipNames, fltfuncSkipNames, logstr = get_input_names(self.cmbbSkipName, self.var_opmSkipNameMode, self.var_ckbSkipNameIC)
             if not ok: return
             if not (skipDirs or pttnsSkipNames):
-                msgbox_inperror('Filter "Skipped dirs": nothing to search')
+                tk_msg_errinp('Filter "Skipped dirs": nothing to search')
                 return
             if skipDirs:
-                logLines.append('Skip directories: %s' %(skipDirs))
+                logFind.append('Skip directories: %s' %(skipDirs))
+                tk_cmbb_save(self.cmbbSkipDir, OPT.DROPDOWN_SKIP_DIRECTORIES)
             if pttnsSkipNames:
-                logLines.append('Skip dirs with name: %s' % logstr)
+                logFind.append('Skip dirs with name: %s' % logstr)
+                tk_cmbb_save(self.cmbbSkipName, OPT.DROPDOWN_SKIP_DIRS_WITH_NAME)
         else:
             skipDirs, pttnsSkipNames, fltfuncSkipNames = (), (), None
 
@@ -1832,7 +1940,18 @@ class Application:
                     # p2 is saved normcase-ed
                     # p1 is not normcase-ed: result paths should be as typed by user
             if ok:
-                inputDirs_v2.append((p, skipDirsNew))
+                xdev = None
+                if var_ckbXdev:
+                    try:
+                        xdev = os.stat(p, follow_symlinks=False).st_dev
+                    except OSError as err:
+                        tk_msg_err('**OSError** while getting device number:\n%s' %(e_info(err)))
+                        return
+                    if not xdev:
+                        tk_msg_err('Cannot get device number for directory:\n%s' %(quoted(p)))
+                        return
+                inputDirs_v2.append((p, skipDirsNew, xdev))
+
 
         ### filter "Name" --------------------------------------------
         doName1, doName2 = False, False
@@ -1843,18 +1962,20 @@ class Application:
             if querName1:
                 doName1 = True
                 yesName1 = self.var_opmName1.get()
-                logLines.append('%s %s' %(yesName1, logstr))
+                logFind.append('%s %s' %(yesName1, logstr))
                 yesName1 = not yesName1.startswith('Not')
+                tk_cmbb_save(self.cmbbName1, OPT.DROPDOWN_NAME_1)
             # combobox Name2
             ok, querName2, fltfuncName2, logstr = get_input_names(self.cmbbName2, self.var_opmName2Mode, self.var_ckbName2IC)
             if not ok: return
             if querName2:
                 doName2 = True
                 yesName2 = self.var_opmName2.get()
-                logLines.append('%s %s' %(yesName2, logstr))
+                logFind.append('%s %s' %(yesName2, logstr))
                 yesName2 = not yesName2.startswith('Not')
+                tk_cmbb_save(self.cmbbName2, OPT.DROPDOWN_NAME_2)
             if not (doName1 or doName2):
-                msgbox_inperror('Filter "Name": nothing to search')
+                tk_msg_errinp('Filter "Name": nothing to search')
                 return
 
         ### filter "Path" --------------------------------------------
@@ -1866,18 +1987,20 @@ class Application:
             if querPath1:
                 doPath1 = True
                 yesPath1 = self.var_opmPath1.get()
-                logLines.append('%s %s' %(yesPath1, logstr))
+                logFind.append('%s %s' %(yesPath1, logstr))
                 yesPath1 = not yesPath1.startswith('Not')
+                tk_cmbb_save(self.cmbbPath1, OPT.DROPDOWN_PATH_1)
             # combobox Path2
             ok, querPath2, fltfuncPath2, logstr = get_input_names(self.cmbbPath2, self.var_opmPath2Mode, self.var_ckbPath2IC)
             if not ok: return
             if querPath2:
                 doPath2 = True
                 yesPath2 = self.var_opmPath2.get()
-                logLines.append('%s %s' %(yesPath2, logstr))
+                logFind.append('%s %s' %(yesPath2, logstr))
                 yesPath2 = not yesPath2.startswith('Not')
+                tk_cmbb_save(self.cmbbPath2, OPT.DROPDOWN_PATH_2)
             if not (doPath1 or doPath2):
-                msgbox_inperror('Filter "Path": nothing to search')
+                tk_msg_errinp('Filter "Path": nothing to search')
                 return
 
         ### filter "Type" --------------------------------------------
@@ -1891,9 +2014,10 @@ class Application:
                     if s:
                         querExt[i] = '.%s' %(s.casefold())
                 yesExt = self.var_opmExts.get()
-                logLines.append('%s %s' %(yesExt, repr(querExt)))
+                logFind.append('%s %s' %(yesExt, repr(querExt)))
                 querExt = {}.fromkeys(querExt)
                 yesExt = not yesExt.startswith('Not')
+                tk_cmbb_save(self.cmbbExts, OPT.DROPDOWN_EXTENSION)
             # FileType
             querFT = []
             if self.var_ckbTypeF.get(): querFT.append('-')
@@ -1902,11 +2026,11 @@ class Application:
             if self.var_ckbTypeO.get(): querFT.append('o')
             if len(querFT) != 4:
                 doFT = True
-                logLines.append('File type: %s' %(repr(querFT)))
+                logFind.append('File type: %s' %(repr(querFT)))
                 querFT = {}.fromkeys(querFT)
 
             if not (doExt or doFT):
-                msgbox_inperror('Filter "Type": nothing to search')
+                tk_msg_errinp('Filter "Type": nothing to search')
                 return
 
         ### filter "Size" --------------------------------------------
@@ -1923,12 +2047,12 @@ class Application:
             ok, sz2, logstr2 = get_input_size(self.entSize2, units)
             if not ok: return
             if (sz1 is None) and (sz2 is None):
-                msgbox_inperror('Filter "Size": nothing to search')
+                tk_msg_errinp('Filter "Size": nothing to search')
                 return
             logstr1 = '%s < ' %logstr1 if sz1 else ''
             logstr2 = ' < %s' %logstr2 if sz2 else ''
-            logLines.append('%s%s%s' %(logstr1, what, logstr2))
-            fltfuncSize = make_comp_func(sz1, sz2, 'st_size')
+            logFind.append('%s%s%s' %(logstr1, what, logstr2))
+            fltfuncSize = fltfuncs.make_comp_func(sz1, sz2, 'st_size')
 
         ### filter "Time" --------------------------------------------
         doTime = self.tab_is_on(5)
@@ -1938,16 +2062,16 @@ class Application:
             ok, tm2, logstr2 = get_input_time(self.entTime2)
             if not ok: return
             if (tm1 is None) and (tm2 is None):
-                msgbox_inperror('Filter "Time": nothing to search')
+                tk_msg_errinp('Filter "Time": nothing to search')
                 return
             what = self.var_opmTime.get()
             logstr1 = '%s < ' %logstr1 if tm1 else ''
             logstr2 = ' < %s' %logstr2 if tm2 else ''
-            logLines.append('%s%s%s' %(logstr1, what, logstr2))
+            logFind.append('%s%s%s' %(logstr1, what, logstr2))
             if what == 'MTIME':   att = 'st_mtime'
             elif what == 'CTIME': att = 'st_ctime'
             elif what == 'ATIME': att = 'st_atime'
-            fltfuncTime = make_comp_func(tm1, tm2, att)
+            fltfuncTime = fltfuncs.make_comp_func(tm1, tm2, att)
 
         ### filter "Misc" --------------------------------------------
         doMisc = self.tab_is_on(6)
@@ -1955,30 +2079,33 @@ class Application:
             ok, querUID, querGID, querNLINK, querMODE, fltfuncMODE, logstr = get_input_misc(self.entUID, self.entGID, self.entNLINK, self.cmbbMODE, self.var_opmMODEMode)
             if not ok: return
             if not (querUID or querGID or querNLINK or querMODE):
-                msgbox_inperror('Filter "Misc": nothing to search')
+                tk_msg_errinp('Filter "Misc": nothing to search')
                 return
             if querUID:
                 yesUID = self.var_opmUID.get()
-                logLines.append('%s %s' %(yesUID, repr(list(querUID))))
+                logFind.append('%s %s' %(yesUID, repr(list(querUID))))
                 yesUID = not yesUID.startswith('Not')
             if querGID:
                 yesGID = self.var_opmGID.get()
-                logLines.append('%s %s' %(yesGID, repr(list(querGID))))
+                logFind.append('%s %s' %(yesGID, repr(list(querGID))))
                 yesGID = not yesGID.startswith('Not')
             if querNLINK:
                 querNlink = querNLINK[0]
-                logLines.append('NLINK > %s' %(repr(querNlink)))
+                logFind.append('NLINK > %s' %(repr(querNlink)))
             if querMODE:
                 yesMODE = self.var_opmMODE.get()
-                logLines.append('%s %s' %(yesMODE, logstr))
+                logFind.append('%s %s' %(yesMODE, logstr))
                 yesMODE = not yesMODE.startswith('Not')
+                tk_cmbb_save(self.cmbbMODE, OPT.DROPDOWN_MODE)
 
         ### filter "Content" -----------------------------------------
         doCont = self.tab_is_on(7)
         if doCont:
-            ok, querCont, fltfuncCont, kwargsCont, logstr = get_input_content(self.entCont, self.var_opmContMode, self.var_ckbContIC, self.cmbbContEnc, self.var_opmContErrors, self.var_opmContNewline)
+            ok, querCont, fltfuncCont, kwargsCont, logstr = get_input_content(self.cmbbCont, self.var_opmContMode, self.var_ckbContIC, self.cmbbContEnc, self.var_opmContErrors, self.var_opmContNewline)
             if not ok: return
-            logLines.append('Content: %s' %logstr)
+            logFind.append('Content: %s' %logstr)
+            tk_cmbb_save(self.cmbbCont, OPT.DROPDOWN_LINE)
+            tk_cmbb_save(self.cmbbContEnc, OPT.DROPDOWN_ENCODING)
 
         ### needEnstat
         if doTime or doSize or doMisc:
@@ -1989,7 +2116,8 @@ class Application:
 
         ### prepare to scan ------------------------------------------
         _trvw = self.trvwResults
-        resTable, resErrs1, resErrs2, resErrs3 = [], [], [], []
+        resTable, logErrs1, logErrs2, logErrs3, logXdevs = [], [], [], [], None
+        if var_ckbXdev: logXdevs = []
         Cnt.d, cntItems, cntFound = 0, 0, 0
 
         # handle column LinkTo separately because it does not need stat
@@ -2022,8 +2150,10 @@ class Application:
         ### try: -----------------------------------------------------
         try:
             ok, notok = False, False
-            for (inputDir, skipDirs) in inputDirs_v2:
-                for (endir, en, isDir, err) in scantree(inputDir, recurse=var_ckbRecurse, skipPaths=skipDirs, skipNames=pttnsSkipNames, fltName=fltfuncSkipNames):
+            for (inputDir, skipDirs, xdev) in inputDirs_v2:
+                for (endir, en, isDir) in scantree(inputDir, var_ckbRecurse, xdev,
+                                            logErrs1, logXdevs,
+                                            skipDirs, pttnsSkipNames, fltfuncSkipNames):
                     # TESTING: reduce scan speed
                     #time.sleep(0.2)
                     ### periodically update Statusbar and check if CANCEL button was pressed
@@ -2031,19 +2161,17 @@ class Application:
                         self._isTime = False
                         tNow = _time()
                         self.status_put('searching...', cntFound, cntItems, Cnt.d,
-                                        '%s+%s+%s' %(len(resErrs1), len(resErrs2), len(resErrs3)),
+                                        '%s+%s+%s' %(len(logErrs1), len(logErrs2), len(logErrs3)),
                                         tNow-tT1, tNow-tT0)
                         self.master.update()
                         if self._isCancelled:
                             self.status_put('cancelled...', cntFound, cntItems, Cnt.d,
-                                            '%s+%s+%s' %(len(resErrs1), len(resErrs2), len(resErrs3)),
+                                            '%s+%s+%s' %(len(logErrs1), len(logErrs2), len(logErrs3)),
                                             _time()-tT1, _time()-tT0)
                             self._timer.cancel()
                             break
 
                     ### what we got from scandir()
-                    if err:
-                        resErrs1.append('%s: %s' %(err.__class__.__name__, err))
                     if not en:
                         continue
                     cntItems += 1
@@ -2093,7 +2221,7 @@ class Application:
                                 elif en.is_symlink(): enft = 'l'
                                 else: enft = 'o'
                             except OSError as e:
-                                resErrs2.append(str(e))
+                                logErrs2.append(str(e))
                                 continue
                         if enft not in querFT: continue
 
@@ -2104,7 +2232,7 @@ class Application:
                         try:
                             enstat = en.stat(follow_symlinks=False)
                         except OSError as e:
-                            resErrs2.append(str(e))
+                            logErrs2.append(str(e))
                             continue
 
                         if doSize:
@@ -2142,7 +2270,7 @@ class Application:
                                 if en.is_file(follow_symlinks=False): enft = '-'
                                 else: continue
                             except OSError as e:
-                                resErrs2.append(str(e))
+                                logErrs2.append(str(e))
                                 continue
                         elif enft != '-':
                             continue
@@ -2151,7 +2279,7 @@ class Application:
                                 if not fltfuncCont(f, querCont):
                                     continue
                         except Exception as e:
-                            resErrs3.append('%s:\n    %s: %s' %(en.path, e.__class__.__name__, e))
+                            logErrs3.append('%s:\n    %s: %s' %(en.path, e.__class__.__name__, e))
                             continue
 
                     ### process found item ---------------------------
@@ -2161,7 +2289,7 @@ class Application:
                         try:
                             enstat = en.stat(follow_symlinks=False)
                         except OSError as e:
-                            resErrs2.append(str(e))
+                            logErrs2.append(str(e))
                             continue
                     if enft == '':
                         if isDir: enft = 'd'
@@ -2174,7 +2302,7 @@ class Application:
                                 else:
                                     enft = _filemode(enstat.st_mode)[0]
                             except OSError as e:
-                                resErrs2.append(str(e))
+                                logErrs2.append(str(e))
                                 continue
                     elif enft == 'o':
                         enft = _filemode(enstat.st_mode)[0]
@@ -2216,7 +2344,7 @@ class Application:
                         if c in resCache:
                             res.append(resCache[c])
                         else:
-                            res.append(enst_Functions[c](enstat))
+                            res.append(fltfuncs.enst_Functions[c](enstat))
 
                     # add this row to results
                     resTable.append(tuple(res))
@@ -2227,7 +2355,7 @@ class Application:
             ### end of scanning --------------------------------------
             self._timer.cancel()
             tT1 = _time()-tT1 # scanning time
-            lenErrs = '%s+%s+%s' %(len(resErrs1), len(resErrs2), len(resErrs3))
+            lenErrs = '%s+%s+%s' %(len(logErrs1), len(logErrs2), len(logErrs3))
 
             # cannot cancel while tree is being populated
             self.btnCANCEL['state'] = tk.DISABLED
@@ -2235,18 +2363,20 @@ class Application:
             self.master.update_idletasks()
 
             ### save errors ------------------------------------------
-            if resErrs1:
-                logLines.append('\n**OSError** (during file system traversal)')
-                resErrs1.sort()
-                logLines.extend(resErrs1)
-            if resErrs2:
-                logLines.append('\n**OSError** (during item processing)')
-                resErrs2.sort()
-                logLines.extend(resErrs2)
-            if resErrs3:
-                logLines.append('\n**Exception** (during file content search)')
-                resErrs3.sort()
-                logLines.extend(resErrs3)
+            if logErrs1:
+                logFind.append('\n**OSError** (during file system traversal)')
+                logErrs1.sort()
+                logFind.extend(logErrs1)
+            if logErrs2:
+                logFind.append('\n**OSError** (during item processing)')
+                logErrs2.sort()
+                logFind.extend(logErrs2)
+            if logErrs3:
+                logFind.append('\n**Exception** (during file content search)')
+                logErrs3.sort()
+                logFind.extend(logErrs3)
+            if var_ckbXdev:
+                logFind.append('\nxdev-ed: %s' %repr(logXdevs))
 
             ### warn if there are too many results to display --------
             if cntFound > OPT.MAX_RESULTS:
@@ -2254,7 +2384,7 @@ class Application:
                 yesno = tkMessageBox.askyesno('%s -- Confirm' % TITLE, 'Display %s results?' % cntFound)
                 tT0 += _time() - tT00
                 if not yesno:
-                    logLines.append('\nRESULTS NOT DISPLAYED')
+                    logFind.append('\nRESULTS NOT DISPLAYED')
                     ok = True
                     return
 
@@ -2280,14 +2410,14 @@ class Application:
         ### except: --------------------------------------------------
         except:
             notok = True
-            logLines.append('\n********************* ERROR OCCURRED DURING FIND *********************')
+            logFind.append('\n********************* ERROR OCCURRED DURING FIND *********************')
             try:
                 etype, evalue, etb = sys.exc_info()
                 f_ex = traceback.format_exception(etype, evalue, etb)
-                logLines.extend(f_ex)
+                logFind.extend(f_ex)
                 etype = evalue = etb = None
             except Exception as e:
-                logLines.append('**Exception** while trying to format traceback:%s' % e_info(e))
+                logFind.append('**Exception** while trying to format traceback:%s' % e_info(e))
 
         ### finally: -------------------------------------------------
         finally:
@@ -2296,7 +2426,7 @@ class Application:
             self.btnCANCEL['state'] = tk.DISABLED
             # print to log
             self.txtLog['state'] = tk.NORMAL
-            self.log_put('\n'.join(logLines))
+            self.log_put('\n'.join(logFind))
             self.master.update() # to discard clicks on UI, e.g., during prolonged displaying
             self._isBusy = False
             #self._isCancelled = False
@@ -2323,13 +2453,13 @@ class Application:
     def trvw_populate(self, resTable):
         """Populate empty Treeview with data from resTable."""
         _trvw = self.trvwResults
-        _tags = self.tags
+        _tags = {'d': 'd', 'l': 'l'}
         for n, i in enumerate(resTable, start=1):
             if i[0] == '-':
                 t = []
             else:
                 t = [_tags.get(i[0], 'o')]
-            if n % 2:
+            if not n % 2:
                 t.append('s')
             _trvw.insert('', 'end', iid='%s' %n, values=i, tags=t)
 
@@ -2432,37 +2562,54 @@ class Cnt:
     d = 0
 
 
-def scantree(dirpath, recurse=True, skipPaths=None, skipNames=None, fltName=None):
+def scantree(dirpath, recurse, xdev, logErrs, logXdevs, skipPaths, skipNames, fltName):
     """Scan directory dirpath with scandir().
-    Yield (dirpath, DirEntry, isDirectory, error).
-    recurse -- scan recursively or not.
-    skipPaths -- list of directory paths to skip, must be abspath-ed and normcase-ed.
-    skipNames -- list of directory names to skip.
-    fltName -- filter function to use with names in skipNames.
-    When directory is skipped, skip everything under it (do not descent into it).
-    """
+    Yield (dirpath, DirEntry, isDirectory)."""
+    # dirpath -- abs directory path
+    # recurse -- True or False
+    # xdev -- device number (not 0) of entry directory or None
+    # logErrs -- list to which errors are appended
+    # logXdevs -- list to which xdev-ed directories are appended
+    # skipPaths -- list of directory paths to skip, must be abspath-ed and normcase-ed
+    # skipNames -- list of directory names to skip
+    # fltName -- filter function to use with names in skipNames
+    # When directory is skipped, skip it and everything in it (do not descent into it).
     Cnt.d += 1
     try:
         for en in _scandir(dirpath):
             try:
                 isDir = en.is_dir(follow_symlinks=False)
             except OSError as err:
-                yield (dirpath, en, None, err)
+                logErrs.append('en.is_dir(): %s: %s' %(err.__class__.__name__, err))
+                yield (dirpath, en, None)
+                continue
+            if isDir:
+                if skipPaths and is_subdir(_normcase(en.path), skipPaths):
+                    continue
+                if skipNames and fltName(en.name, skipNames):
+                    continue
+                yield (dirpath, en, True)
+                if recurse:
+                    if xdev:
+                        try:
+                            xdev_ = en.stat(follow_symlinks=False).st_dev # 0 on Windows
+                            if xdev_ != xdev:
+                                if not xdev_:
+                                    logErrs.append('xdev check failed: st_dev=0: %s' %en.path)
+                                logXdevs.append(en.path)
+                                continue
+                        except OSError as err:
+                            logErrs.append('en.stat(): %s: %s' %(err.__class__.__name__, err))
+                            continue
+                    for item in scantree(en.path, recurse, xdev, logErrs, logXdevs,
+                                            skipPaths, skipNames, fltName):
+                        yield item
             else:
-                if isDir:
-                    if skipPaths and is_subdir(_normcase(en.path), skipPaths):
-                        continue
-                    if skipNames and fltName(en.name, skipNames):
-                        continue
-                    yield (dirpath, en, True, None)
-                    if recurse:
-                        for item in scantree(en.path, recurse=recurse, skipPaths=skipPaths, skipNames=skipNames, fltName=fltName):
-                            yield item
-                else:
-                    yield (dirpath, en, False, None)
+                yield (dirpath, en, False)
     except OSError as err:
         Cnt.d -= 1
-        yield (dirpath, None, None, err)
+        logErrs.append('%s: %s' %(err.__class__.__name__, err))
+        yield (dirpath, None, None)
 
 
 def inpstr_to_items(s, sep='|', noempty=True):
@@ -2523,7 +2670,7 @@ def process_input_dirs(dirs, mustexist=True, nosubdirs=True):
             continue
         # when each entry must be a valid dir
         if mustexist and (not _path.isdir(d) or _path.islink(d)):
-            msgbox_inperror('Path is not accessible or not a directory:\n%s' %(quoted(d)))
+            tk_msg_errinp('Path is not accessible or not a directory:\n%s' %(quoted(d)))
             return None
         res.append(d)
         seen[d_nc] = 1
@@ -2534,7 +2681,7 @@ def process_input_dirs(dirs, mustexist=True, nosubdirs=True):
             d_nc = _normcase(d)
             ok = True
             for d2 in seen:
-                if is_subdir(d_nc, [d2]) and d_nc != d2: # duplicates have been removed already
+                if d_nc != d2 and is_subdir(d_nc, [d2]): # duplicates have been removed already
                     ok = False
                     break
             if ok:
@@ -2569,7 +2716,7 @@ def get_input_names(cmbbName, var_opmNameMode, var_ckbNameIC):
         flags = re.IGNORECASE if var_ic else 0
         pttrns, msg = compile_regexp(pttrns, flags=flags)
         if msg:
-            msgbox_inperror(msg)
+            tk_msg_errinp(msg)
             return (0, None, None, '')
         qn = 1
     else:
@@ -2581,19 +2728,19 @@ def get_input_names(cmbbName, var_opmNameMode, var_ckbNameIC):
             qn = 2
         logstr = '%s\n    %s, IgnoreCase=%s' %(repr(pttrns), var_mode, var_ic)
 
-    filterFunc = flt_NameMatchers[(var_mode, qn, var_ic)]
+    filterFunc = fltfuncs.flt_NameMatchers[(var_mode, qn, var_ic)]
 
     return (1, pttrns, filterFunc, logstr)
 
 
-def get_input_content(entCont, var_opmContMode, var_ckbContIC,
+def get_input_content(cmbbCont, var_opmContMode, var_ckbContIC,
                       cmbbContEnc, var_opmContErrors, var_opmContNewline):
     """Process data entered in filter Content.
     Return (ok, pattern, filter-function, kwargs, logstr)."""
 
-    pttrn = inpstr_to_items(entCont.get(), sep=None)
+    pttrn = inpstr_to_items(cmbbCont.get(), sep=None)
     if not pttrn:
-        msgbox_inperror('Filter "Content": nothing to search')
+        tk_msg_errinp('Filter "Content": nothing to search')
         return (0, None, None, None, '')
 
     var_mode = var_opmContMode.get()
@@ -2604,14 +2751,14 @@ def get_input_content(entCont, var_opmContMode, var_ckbContIC,
         flags = re.IGNORECASE if var_ic else 0
         pttrn, msg = compile_regexp(pttrn, flags=flags)
         if msg:
-            msgbox_inperror(msg)
+            tk_msg_errinp(msg)
             return (0, None, None, None, '')
     else:
         if var_ic:
             pttrn = pttrn.casefold()
         logstr = '%s\n    %s, IgnoreCase=%s' %(repr(pttrn), var_mode, var_ic)
 
-    matcherFunc = flt_ContMatchers[(var_mode, var_ic)]
+    matcherFunc = fltfuncs.flt_ContMatchers[(var_mode, var_ic)]
 
     kwargs = {}
     enc = cmbbContEnc.get()
@@ -2619,7 +2766,7 @@ def get_input_content(entCont, var_opmContMode, var_ckbContIC,
         enc, x = enc.split('#', 1)
     enc = enc.strip()
     if not enc:
-            msgbox_inperror('Filter "Content": no encoding')
+            tk_msg_errinp('Filter "Content": no encoding')
             return (0, None, None, None, '')
     kwargs['encoding'] = enc
     kwargs['errors'] = var_opmContErrors.get()
@@ -2644,17 +2791,17 @@ def get_input_misc(entUID, entGID, entNLINK, cmbbMODE, var_opmMODEMode):
     # UID
     querUID, msg = inpstr_to_ints(entUID.get(), sep='|')
     if msg:
-        msgbox_inperror(msg)
+        tk_msg_errinp(msg)
         return error
     # GID
     querGID, msg = inpstr_to_ints(entGID.get(), sep='|')
     if msg:
-        msgbox_inperror(msg)
+        tk_msg_errinp(msg)
         return error
     # NLINK
     querNLINK, msg = inpstr_to_ints(entNLINK.get(), sep=None)
     if msg:
-        msgbox_inperror(msg)
+        tk_msg_errinp(msg)
         return error
 
     # MODE
@@ -2669,7 +2816,7 @@ def get_input_misc(entUID, entGID, entNLINK, cmbbMODE, var_opmMODEMode):
             logstr = '%s\n    %s' %(repr(pttrns), var_mode)
             pttrns, msg = compile_regexp(pttrns, flags=0)
             if msg:
-                msgbox_inperror(msg)
+                tk_msg_errinp(msg)
                 return error
             qn = 1
         else:
@@ -2679,7 +2826,7 @@ def get_input_misc(entUID, entGID, entNLINK, cmbbMODE, var_opmMODEMode):
                 qn = 2
             logstr = '%s\n    %s' %(repr(pttrns), var_mode)
         querMODE = pttrns
-        fltfuncMODE = flt_NameMatchers[(var_mode, qn, 0)] # IgnoreCase=0
+        fltfuncMODE = fltfuncs.flt_NameMatchers[(var_mode, qn, 0)] # IgnoreCase=0
 
     return (1, set(querUID), set(querGID), querNLINK, querMODE, fltfuncMODE, logstr)
 
@@ -2695,7 +2842,7 @@ def get_input_time(entBox):
         tm = time.strptime(s, TIME_FORMAT)
         tm = time.mktime(tm)
     except Exception as e:
-        msgbox_inperror('Cannot convert string to time: %s\n**Exception**:%s' %(repr(s), e_info(e)))
+        tk_msg_errinp('Cannot convert string to time: %s\n**Exception**:%s' %(repr(s), e_info(e)))
         return (0, None, '')
     logstr = '%s (%s)' %(logstr, tm)
     return (1, tm, logstr)
@@ -2712,7 +2859,7 @@ def get_input_size(entBox, units):
         sz = float(s)
         sz = int('%.0f' %(sz * units))
     except Exception as e:
-        msgbox_inperror('Cannot convert string to file size: %s\n**Exception**:%s' %(repr(s), e_info(e)))
+        tk_msg_errinp('Cannot convert string to file size: %s\n**Exception**:%s' %(repr(s), e_info(e)))
         return (0, None, '')
     logstr = '%s (%s bytes)' %(logstr, sz)
     return (1, sz, logstr)
@@ -3009,11 +3156,46 @@ def tk_cmbb_insert(cmbb, values):
             cmbb.insert(0, val)
 
 
-def msgbox_error(message):
+def tk_cmbb_save(cmbb, defaults=[], maxlen=10):
+    """Save current string in combobobx cmbb in its dropdown list.
+    Keep list of defaults at the bottom, do not modify it.
+    Limit history list to maxlen entries, defaults not counted."""
+    s = cmbb.get()
+    if not s or s in defaults:
+        return
+    vals = list(cmbb.cget('values'))
+    vals = vals[: len(vals) - len(defaults)]
+    if s in vals: vals.remove(s)
+    vals.insert(0, s)
+    vals = vals[: maxlen]
+    vals.extend(defaults)
+    cmbb.configure(values=vals)
+
+
+def tk_check_colors(root, colors):
+    """Check that each string item in list `colors` is a valid Tk color.
+    Return (`colors` with invalid items replaced by '', list of exceptions).
+    """
+    colors_, errs = [], []
+    f_ = tk.Frame(root) # dummy widget to check if color is valid
+    for c in colors:
+        if not c:
+            colors_.append(c)
+            continue
+        try:
+            f_.configure(background=c)
+            colors_.append(c)
+        except tk.TclError as e:
+            errs.append('**tkinter.TclError** while validating color:\n    %s' %e)
+            colors_.append('')
+    return (colors_, errs)
+
+
+def tk_msg_err(message):
     tkMessageBox.showerror('%s -- Error' % TITLE, message)
 
 
-def msgbox_inperror(message):
+def tk_msg_errinp(message):
     tkMessageBox.showerror('%s -- Invalid Input' % TITLE, message)
 
 
@@ -3029,7 +3211,7 @@ if sys.platform == 'win32':
             os.startfile(p)
         except Exception as e:
             emsg = e_info(e)
-            msgbox_error('**Exception** (see Log for details):%s' %emsg)
+            tk_msg_err('**Exception** (see Log for details):%s' %emsg)
             log_put(LHR)
             log_put('**Exception**:%s' %emsg)
             log_put('caused by: os.startfile(p)\np = %s' %repr(p), True)
@@ -3045,248 +3227,10 @@ else:
             pid = subprocess.Popen(['xdg-open', p]).pid
         except Exception as e:
             emsg = e_info(e)
-            msgbox_error('**Exception** (see Log for details):%s' %emsg)
+            tk_msg_err('**Exception** (see Log for details):%s' %emsg)
             log_put(LHR)
             log_put('**Exception**:%s' %emsg)
             log_put("caused by: subprocess.Popen(['xdg-open', p])\np = %s" %repr(p), True)
-
-
-#--- filter Name functions -------------------------------------------
-
-def flt_NameExact1(name, s):
-    if s == name:
-        return 1
-
-def flt_NameExact1_IC(name, s):
-    if s == name.casefold():
-        return 1
-
-def flt_NameExact2(name, ss):
-    for s in ss:
-        if s == name:
-            return 1
-
-def flt_NameExact2_IC(name, ss):
-    for s in ss:
-        if s == name.casefold():
-            return 1
-
-#---
-def flt_NameContains1(name, s):
-    if s in name:
-        return 1
-
-def flt_NameContains1_IC(name, s):
-    if s in name.casefold():
-        return 1
-
-def flt_NameContains2(name, ss):
-    for s in ss:
-        if s in name:
-            return 1
-
-def flt_NameContains2_IC(name, ss):
-    for s in ss:
-        if s in name.casefold():
-            return 1
-
-#---
-def flt_NameStartswith1(name, s):
-    if name.startswith(s):
-        return 1
-
-def flt_NameStartswith1_IC(name, s):
-    if name.casefold().startswith(s):
-        return 1
-
-def flt_NameStartswith2(name, ss):
-    for s in ss:
-        if name.startswith(s):
-            return 1
-
-def flt_NameStartswith2_IC(name, ss):
-    for s in ss:
-        if name.casefold().startswith(s):
-            return 1
-
-#---
-def flt_NameEndswith1(name, s):
-    if name.endswith(s):
-        return 1
-
-def flt_NameEndswith1_IC(name, s):
-    if name.casefold().endswith(s):
-        return 1
-
-def flt_NameEndswith2(name, ss):
-    for s in ss:
-        if name.endswith(s):
-            return 1
-
-def flt_NameEndswith2_IC(name, ss):
-    for s in ss:
-        if name.casefold().endswith(s):
-            return 1
-
-#---
-def flt_NameWildcard1(name, w):
-    if fnmatch.fnmatchcase(name, w):
-        return 1
-
-def flt_NameWildcard1_IC(name, w):
-    if fnmatch.fnmatchcase(name.casefold(), w):
-        return 1
-
-def flt_NameWildcard2(name, ww):
-    for w in ww:
-        if fnmatch.fnmatchcase(name, w):
-            return 1
-
-def flt_NameWildcard2_IC(name, ww):
-    for w in ww:
-        if fnmatch.fnmatchcase(name.casefold(), w):
-            return 1
-
-#---
-def flt_NameRegexp(name, regExp):
-    if regExp.search(name):
-        return 1
-
-#--- filter Name func map ---
-# keys are: name of match mode, 1 query or >=2 queries, IgnoreCase
-flt_NameMatchers = {
-            ('Exact',      1, 0): flt_NameExact1,
-            ('Contains',   1, 0): flt_NameContains1,
-            ('StartsWith', 1, 0): flt_NameStartswith1,
-            ('EndsWith',   1, 0): flt_NameEndswith1,
-            ('WildCard',   1, 0): flt_NameWildcard1,
-            ('RegExp',     1, 0): flt_NameRegexp,
-
-            ('Exact',      1, 1): flt_NameExact1_IC,
-            ('Contains',   1, 1): flt_NameContains1_IC,
-            ('StartsWith', 1, 1): flt_NameStartswith1_IC,
-            ('EndsWith',   1, 1): flt_NameEndswith1_IC,
-            ('WildCard',   1, 1): flt_NameWildcard1_IC,
-            ('RegExp',     1, 1): flt_NameRegexp,
-
-            ('Exact',      2, 0): flt_NameExact2,
-            ('Contains',   2, 0): flt_NameContains2,
-            ('StartsWith', 2, 0): flt_NameStartswith2,
-            ('EndsWith',   2, 0): flt_NameEndswith2,
-            ('WildCard',   2, 0): flt_NameWildcard2,
-
-            ('Exact',      2, 1): flt_NameExact2_IC,
-            ('Contains',   2, 1): flt_NameContains2_IC,
-            ('StartsWith', 2, 1): flt_NameStartswith2_IC,
-            ('EndsWith',   2, 1): flt_NameEndswith2_IC,
-            ('WildCard',   2, 1): flt_NameWildcard2_IC,
-            }
-
-
-#--- filter Content functions ----------------------------------------
-# fl is opened file
-
-def flt_ContContains(fl, s):
-    for line in fl:
-        if s in line:
-            return 1
-
-def flt_ContContains_IC(fl, s):
-    for line in fl:
-        if s in line.casefold():
-            return 1
-
-#---
-def flt_ContStartswith(fl, s):
-    for line in fl:
-        if line.startswith(s):
-            return 1
-
-def flt_ContStartswith_IC(fl, s):
-    for line in fl:
-        if line.casefold().startswith(s):
-            return 1
-
-#---
-def flt_ContWildcard(fl, w):
-    for line in fl:
-        if fnmatch.fnmatchcase(line, w):
-            return 1
-
-def flt_ContWildcard_IC(fl, w):
-    for line in fl:
-        if fnmatch.fnmatchcase(line.casefold(), w):
-            return 1
-
-#---
-def flt_ContRegexp(fl, regExp):
-    for line in fl:
-        if regExp.search(line):
-            return 1
-
-#--- filter Content func map ---
-flt_ContMatchers = {
-            ('Contains',   0): flt_ContContains,
-            ('StartsWith', 0): flt_ContStartswith,
-            ('WildCard',   0): flt_ContWildcard,
-            ('RegExp',     0): flt_ContRegexp,
-
-            ('Contains',   1): flt_ContContains_IC,
-            ('StartsWith', 1): flt_ContStartswith_IC,
-            ('WildCard',   1): flt_ContWildcard_IC,
-            ('RegExp',     1): flt_ContRegexp,
-            }
-
-
-#--- filter Time, Size functions -------------------------------------
-def make_comp_func(x, z, att):
-    if (x is not None) and (z is not None):
-        return lambda y: x < getattr(y, att) < z
-    elif (x is not None) and (z is None):
-        return lambda y: x < getattr(y, att)
-    elif (x is None) and (z is not None):
-        return lambda y: getattr(y, att) < z
-
-
-#--- DirEntry.stat() functions ---------------------------------------
-# function for getting values for DirEntry stat object
-
-def enst_mtime(st):
-    return _strftime(TIME_FORMAT, _localtime(st.st_mtime))
-
-def enst_ctime(st):
-    return _strftime(TIME_FORMAT, _localtime(st.st_ctime))
-
-def enst_atime(st):
-    return _strftime(TIME_FORMAT, _localtime(st.st_atime))
-
-def enst_mode(st):
-    return _filemode(st.st_mode)
-
-def enst_uid(st):
-    return st.st_uid
-
-def enst_gid(st):
-    return st.st_gid
-
-def enst_nlink(st):
-    return st.st_nlink
-
-def enst_ino(st):
-    return st.st_ino
-
-#--- DirEntry stat func map ---
-# (there is no enst_size, Size is handled specially)
-enst_Functions = {
-            'MTIME': enst_mtime,
-            'CTIME': enst_ctime,
-            'ATIME': enst_atime,
-            'MODE':  enst_mode,
-            'UID':   enst_uid,
-            'GID':   enst_gid,
-            'NLINK': enst_nlink,
-            'INO':   enst_ino,
-            }
 
 
 #---------------------------------------------------------------------

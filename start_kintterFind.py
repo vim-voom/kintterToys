@@ -2,8 +2,8 @@
 
 import sys
 if sys.version_info < (3, 4):
-    raise RuntimeError('kintterFind requires Python version >=3.4')
-import kintterToys.kintterFind
+    print("Python version is too old.\nkintterFind requires Python version 3.4 or newer.")
+    sys.exit(1)
 
 configDir, startupDir, startupLog = '', '', []
 
@@ -22,6 +22,7 @@ if len(sys.argv) > 1:
                 startupDir = v
 
 if __name__ == '__main__':
-    kintterToys.kintterFind.start_GUI(configDir, startupDir, startupLog)
+    from kintterToys.kintterFind import start_GUI
+    start_GUI(configDir, startupDir, startupLog)
 
 # The End
